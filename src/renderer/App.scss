@@ -3,12 +3,8 @@
  *        See https://github.com/webpack-contrib/sass-loader#imports
  */
 
-body {
-  background-color: #282c34;
-}
 
-.avatar {
-  position: absolute;
-  top: 20px;
-  right: 20px;
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
 }

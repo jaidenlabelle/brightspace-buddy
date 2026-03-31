@@ -3,6 +3,7 @@ import { MemoryRouter as Router, Routes, Route } from 'react-router-dom';
 import Avatar from '@mui/material/Avatar';
 import icon from '../../assets/icon.svg';
 import LoginPage from './components/LoginPage';
+import './App.scss';
 
 function Home() {
   return (
@@ -17,8 +18,8 @@ export default function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<LoginPage />} />
-        <Route path="/home" element={<Home />} />
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<LoginPage />} />
       </Routes>
     </Router>
   );

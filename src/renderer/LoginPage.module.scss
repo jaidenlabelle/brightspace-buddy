@@ -1,9 +1,41 @@
 .login {
+  // Fall colors
+  background-color: #f5f5dc;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100vh;
-  background-color: #F5F5;
-  color: #f0f0f0;
+
+  .header {
+    font-size: 2.5rem;
+    margin-bottom: 2rem;
+    color: #8b4513;
+    text-align: center;
+
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      margin: 0;
+    }
+  }
+
+  .content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+
+    color: #8b4513;
+
+    .input {
+      width: 300px;
+      padding: 0.5rem;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+  }
 }
