@@ -70,7 +70,9 @@ const configuration: webpack.Configuration = {
             loader: 'css-loader',
             options: {
               esModule: false, // Jaiden - Fixes an issue where styles are not applied in development mode due to CSS modules being enabled by default in css-loader v6
-              modules: true,
+              modules: {
+                localIdentName: '[name]__[local]--[hash:base64:5]', // Jaiden - Adds a custom naming pattern for CSS modules to make it easier to identify which styles belong to which components during development
+              },
               sourceMap: true,
               importLoaders: 1,
             },
