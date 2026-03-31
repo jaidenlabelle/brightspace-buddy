@@ -9,7 +9,7 @@
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
 import path from 'path';
-import { app, BrowserWindow, shell, ipcMain } from 'electron';
+import { app, BrowserWindow, shell, ipcMain, session } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
@@ -25,6 +25,7 @@ class AppUpdater {
 }
 
 let mainWindow: BrowserWindow | null = null;
+let isAuthenticated = false;
 
 ipcMain.on('ipc-example', async (event, arg) => {
   const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
@@ -33,9 +34,30 @@ ipcMain.on('ipc-example', async (event, arg) => {
 });
 
 ipcMain.on('open-login-window', (event) => {
-  openLoginWindow(() => {
-    event.reply('login-successful');
+  openLoginWindow({
+    onLoginSuccessful: () => {
+      isAuthenticated = true;
+      event.reply('login-successful');
+    },
+    onLoginCancelled: () => {
+      event.reply('login-cancelled');
+    },
   });
+});
+
+ipcMain.handle('get-auth-status', async () => {
+  return isAuthenticated;
+});
+
+ipcMain.on('logout-requested', async (event) => {
+  try {
+    await session.defaultSession.clearStorageData({ storages: ['cookies'] });
+  } catch (error) {
+    console.error('Failed to clear cookies during logout:', error);
+  }
+
+  isAuthenticated = false;
+  event.reply('logout-successful');
 });
 
 if (process.env.NODE_ENV === 'production') {

@@ -4,7 +4,12 @@ import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 
 export type Channels = 'ipc-example'
   | 'open-login-window'
-  | 'login-successful';
+  | 'login-successful'
+  | 'login-cancelled'
+  | 'logout-requested'
+  | 'logout-successful';
+
+export type IpcInvokeChannels = 'get-auth-status';
 
 const electronHandler = {
   ipcRenderer: {
@@ -22,6 +27,9 @@ const electronHandler = {
     },
     once(channel: Channels, func: (...args: unknown[]) => void) {
       ipcRenderer.once(channel, (_event, ...args) => func(...args));
+    },
+    invoke(channel: IpcInvokeChannels, ...args: unknown[]) {
+      return ipcRenderer.invoke(channel, ...args);
     },
   },
 };

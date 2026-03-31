@@ -1,24 +1,12 @@
 import Button from '@mui/material/Button';
-import { useEffect, useState } from 'react';
-import styles from '../LoginPage.module.scss';
+import styles from '../styles/LoginPage.module.scss';
 
-export default function LoginPage() {
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+type LoginPageProps = {
+  isLoggingIn: boolean;
+  onLogin: () => void;
+};
 
-  useEffect(() => {
-    // Subscribe once and remove listener on unmount.
-    const unsubscribe = window.electron?.ipcRenderer.on(
-      'login-successful',
-      () => {
-        setIsLoggingIn(false);
-      },
-    );
-
-    return () => {
-      unsubscribe?.();
-    };
-  }, []);
-
+export default function LoginPage({ isLoggingIn, onLogin }: LoginPageProps) {
   return (
     <div className={styles.login}>
       <div className={styles.header}>
@@ -30,10 +18,7 @@ export default function LoginPage() {
         <Button
           variant="contained"
           color="primary"
-          onClick={() => {
-            setIsLoggingIn(true);
-            window.electron?.ipcRenderer.sendMessage('open-login-window');
-          }}
+          onClick={onLogin}
           loading={isLoggingIn}
         >
           Log In with Brightspace
