@@ -45,6 +45,7 @@ const configuration: webpack.Configuration = {
           {
             loader: 'css-loader',
             options: {
+              esModule: false, // Jaiden - Fixes an issue where styles are not applied in production mode due to CSS modules being enabled by default in css-loader v6
               modules: true,
               sourceMap: true,
               importLoaders: 1,
