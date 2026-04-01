@@ -16,7 +16,6 @@ import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 import openLoginWindow from './brightspace/login';
 import { fetchCourses } from './brightspace/course';
-import { fetchAssignments } from './brightspace/assignment';
 
 class AppUpdater {
   constructor() {
@@ -49,6 +48,14 @@ ipcMain.on('open-login-window', (event) => {
 
 ipcMain.handle('get-auth-status', async () => {
   return isAuthenticated;
+});
+
+ipcMain.handle('get-courses', async () => {
+  if (!isAuthenticated) {
+    return [];
+  }
+
+  return fetchCourses();
 });
 
 ipcMain.on('logout-requested', async (event) => {

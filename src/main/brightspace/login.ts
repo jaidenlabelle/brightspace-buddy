@@ -38,9 +38,9 @@ export default function openLoginWindow({
       //   console.error('Error fetching courses after login:', error);
       // });
 
-      fetchAssignments(847673).catch((error) => {
-        console.error('Error fetching assignments after login:', error);
-      });
+      // fetchAssignments(847673).catch((error) => {
+      //   console.error('Error fetching assignments after login:', error);
+      // });
 
       loginCompleted = true;
       onLoginSuccessful();

@@ -9,7 +9,7 @@ export type Channels = 'ipc-example'
   | 'logout-requested'
   | 'logout-successful';
 
-export type IpcInvokeChannels = 'get-auth-status';
+export type IpcInvokeChannels = 'get-auth-status' | 'get-courses';
 
 const electronHandler = {
   ipcRenderer: {

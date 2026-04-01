@@ -1,42 +1,100 @@
+import { useEffect, useState } from 'react';
 import { TreeViewBaseItem } from '@mui/x-tree-view';
 import { RichTreeView } from '@mui/x-tree-view/RichTreeView';
 
-const MUI_X_PRODUCTS: TreeViewBaseItem[] = [
-  {
-    id: 'grid',
-    label: 'Data Grid',
-    children: [
-      { id: 'grid-community', label: '@mui/x-data-grid' },
-      { id: 'grid-pro', label: '@mui/x-data-grid-pro' },
-      { id: 'grid-premium', label: '@mui/x-data-grid-premium' },
-    ],
-  },
-  {
-    id: 'pickers',
-    label: 'Date and Time Pickers',
-    children: [
-      { id: 'pickers-community', label: '@mui/x-date-pickers' },
-      { id: 'pickers-pro', label: '@mui/x-date-pickers-pro' },
-    ],
-  },
-  {
-    id: 'charts',
-    label: 'Charts',
-    children: [
-      { id: 'charts-community', label: '@mui/x-charts' },
-      { id: 'charts-pro', label: '@mui/charts-pro' },
-    ],
-  },
-  {
-    id: 'tree-view',
-    label: 'Tree View',
-    children: [
-      { id: 'tree-view-community', label: '@mui/x-tree-view' },
-      { id: 'tree-view-pro', label: '@mui/x-tree-view-pro' },
-    ],
-  },
-];
+interface CourseTreeItem {
+  org_unit_id: number;
+  name: string;
+  is_active: boolean;
+}
 
 export default function FileTree() {
-  return <RichTreeView items={MUI_X_PRODUCTS} />;
+  const [items, setItems] = useState<TreeViewBaseItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCourses = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const courses = (await window.electron.ipcRenderer.invoke(
+          'get-courses',
+        )) as CourseTreeItem[];
+
+        if (cancelled) {
+          return;
+        }
+
+        const activeCourses = courses
+          .filter((course) => course.is_active)
+          .map((course) => ({
+            id: `course-${course.org_unit_id}`,
+            label: course.name,
+          }));
+
+        const inactiveCourses = courses
+          .filter((course) => !course.is_active)
+          .map((course) => ({
+            id: `course-${course.org_unit_id}`,
+            label: course.name,
+          }));
+
+        setItems([
+          {
+            id: 'active-courses',
+            label: `Active Courses (${activeCourses.length})`,
+            children: activeCourses,
+          },
+          {
+            id: 'inactive-courses',
+            label: `Inactive Courses (${inactiveCourses.length})`,
+            children: inactiveCourses,
+          },
+        ]);
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err instanceof Error ? err.message : 'Failed to load courses',
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadCourses();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (isLoading) {
+    return <p>Loading courses...</p>;
+  }
+
+  if (error) {
+    return <p>Could not load courses.</p>;
+  }
+
+  const activeGroup = items.find((item) => item.id === 'active-courses');
+  const inactiveGroup = items.find((item) => item.id === 'inactive-courses');
+  const hasCourses =
+    (activeGroup?.children?.length ?? 0) +
+      (inactiveGroup?.children?.length ?? 0) >
+    0;
+
+  if (!hasCourses) {
+    return <p>No courses found.</p>;
+  }
+
+  return (
+    <RichTreeView items={items} defaultExpandedItems={['active-courses']} />
+  );
 }

@@ -1,4 +1,4 @@
-import request from "./brightspace";
+import request, { fetchAllPages } from "./brightspace";
 import Route from "./route";
 import { Semester, semesterFromCode, semesterFromName } from "./semester";
 import { parseDate } from "./utils";
@@ -128,12 +128,13 @@ function parseCourseFullName(courseFullName: string): { name: string, semester: 
 }
 
 // Get courses from brightspace rest API
-export async function fetchCourses() {
+export async function fetchCourses(): Promise<Course[]> {
   try {
-    const response = await request(new Route("GET", "/d2l/api/lp/1.58/enrollments/myenrollments/"));
+    const response = await fetchAllPages<MyOrgUnitInfo>(new Route("GET", "/d2l/api/lp/1.58/enrollments/myenrollments/"));
     console.log("Courses fetched successfully:");
 
-    const items: MyOrgUnitInfo[] = response.Items;
+    const items: MyOrgUnitInfo[] = Array.isArray(response) ? response : [];
+    const courses: Course[] = [];
 
     for (const item of items) {
       try {
@@ -146,11 +147,15 @@ export async function fetchCourses() {
         console.log(`- ${course.full_name} (ID: ${course.org_unit_id})`);
 
         console.log(course);
+        courses.push(course);
       } catch (error) {
         console.error(`Failed to parse course from org unit info`, item.OrgUnit, error);
       }
     }
+
+    return courses;
   } catch (error) {
     console.error("Error in fetchCourses:", error);
+    return [];
   }
 }

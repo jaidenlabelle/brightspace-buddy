@@ -1,23 +1,60 @@
 import { session } from "electron";
 import Route from "./route";
 
+interface PagedResultSet<T> {
+  PagingInfo: {
+    Bookmark: string;
+    HasMoreItems: boolean;
+  };
+  Items: T[];
+}
+
+export async function fetchAllPages<T>(route: Route): Promise<T[]> {
+  const allItems: T[] = [];
+
+  const { d2lSecureSessionVal, d2lSessionVal } = await getBrightspaceSessionCookies();
+
+  function fetchPage(bookmark?: string): Promise<void> {
+    const url = bookmark ? `${route.url}?bookmark=${encodeURIComponent(bookmark)}` : route.url;
+    return fetch(url, {
+      method: route.method,
+      headers: {
+        Cookie: `d2lSecureSessionVal=${d2lSecureSessionVal}; d2lSessionVal=${d2lSessionVal}`,
+      },
+    })
+      .then((response) => response.json())
+      .then((data: PagedResultSet<T>) => {
+        allItems.push(...data.Items);
+        if (data.PagingInfo.HasMoreItems) {
+          return fetchPage(data.PagingInfo.Bookmark);
+        }
+      });
+  }
+
+  return fetchPage().then(() => allItems);
+}
+
 /**
  * Sends an authenticated request to the Brightspace API using the provided Route.
  * @param route The Route object for the API request.
  * @returns A promise that resolves to the JSON response from the Brightspace API.
  * @throws An error if the required session cookies are not found or if the fetch request fails.
  */
-export default async function request(route: Route) {
+export default async function request(route: Route, init?: RequestInit): Promise<any> {
   console.log(`Making request to ${route.url} with method ${route.method}`);
 
   const { d2lSecureSessionVal, d2lSessionVal } = await getBrightspaceSessionCookies();
 
-  return fetch(route.url, {
+  // Set initialization options for fetch, including method and headers with cookies
+  const fetchOptions: RequestInit = {
     method: route.method,
     headers: {
       Cookie: `d2lSecureSessionVal=${d2lSecureSessionVal}; d2lSessionVal=${d2lSessionVal}`,
     },
-  }).then((response) => response.json());
+    ...init, // Spread any additional options passed in
+  };
+
+  return fetch(route.url, fetchOptions).then((response) => response.json());
 }
 
 /**
