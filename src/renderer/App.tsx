@@ -6,8 +6,32 @@ import {
 } from 'react-router-dom';
 import './styles/Global.scss';
 import { useEffect, useState } from 'react';
+import { Box, CircularProgress, CssBaseline, Typography } from '@mui/material';
+import { createTheme, ThemeProvider } from '@mui/material/styles';
 import LoginPage from './components/LoginPage';
 import Home from './components/HomePage';
+
+const theme = createTheme({
+  palette: {
+    mode: 'light',
+    primary: {
+      main: '#1e5f54',
+    },
+    secondary: {
+      main: '#b65a38',
+    },
+    background: {
+      default: '#f4f0e6',
+      paper: '#fffdf9',
+    },
+  },
+  shape: {
+    borderRadius: 12,
+  },
+  typography: {
+    fontFamily: '"Segoe UI", "Helvetica Neue", Arial, sans-serif',
+  },
+});
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -65,43 +89,65 @@ export default function App() {
   }, []);
 
   if (isAuthLoading) {
-    return <div>Checking authentication...</div>;
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Box
+          minHeight="100vh"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          flexDirection="column"
+          gap={2}
+        >
+          <CircularProgress color="primary" />
+          <Typography variant="body1">Checking authentication...</Typography>
+        </Box>
+      </ThemeProvider>
+    );
   }
 
   return (
-    <Router>
-      <Routes>
-        <Route
-          path="/"
-          element={
-            isAuthenticated ? (
-              <Home
-                onLogout={() => {
-                  window.electron?.ipcRenderer.sendMessage('logout-requested');
-                }}
-              />
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
-        />
-        <Route
-          path="/login"
-          element={
-            isAuthenticated ? (
-              <Navigate to="/" replace />
-            ) : (
-              <LoginPage
-                isLoggingIn={isLoggingIn}
-                onLogin={() => {
-                  setIsLoggingIn(true);
-                  window.electron?.ipcRenderer.sendMessage('open-login-window');
-                }}
-              />
-            )
-          }
-        />
-      </Routes>
-    </Router>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Router>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              isAuthenticated ? (
+                <Home
+                  onLogout={() => {
+                    window.electron?.ipcRenderer.sendMessage(
+                      'logout-requested',
+                    );
+                  }}
+                />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/login"
+            element={
+              isAuthenticated ? (
+                <Navigate to="/" replace />
+              ) : (
+                <LoginPage
+                  isLoggingIn={isLoggingIn}
+                  onLogin={() => {
+                    setIsLoggingIn(true);
+                    window.electron?.ipcRenderer.sendMessage(
+                      'open-login-window',
+                    );
+                  }}
+                />
+              )
+            }
+          />
+        </Routes>
+      </Router>
+    </ThemeProvider>
   );
 }

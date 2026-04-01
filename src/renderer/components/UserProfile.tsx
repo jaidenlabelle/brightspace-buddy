@@ -1,4 +1,6 @@
 import Avatar from '@mui/material/Avatar';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import styles from '../styles/UserProfile.module.scss';
 
 function stringToColor(string: string) {
@@ -39,8 +41,12 @@ export default function UserProfile({
 }) {
   return (
     <div className={styles.userProfile}>
-      {/* eslint-disable-next-line react/jsx-props-no-spreading */}
-      <Avatar {...stringAvatar(name)} onClick={onClick} />
+      <Tooltip title="Account options">
+        <IconButton onClick={onClick} aria-label="Open account options">
+          {/* eslint-disable-next-line react/jsx-props-no-spreading */}
+          <Avatar {...stringAvatar(name)} />
+        </IconButton>
+      </Tooltip>
     </div>
   );
 }

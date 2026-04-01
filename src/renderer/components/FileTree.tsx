@@ -1,6 +1,7 @@
 import { SyntheticEvent, useEffect, useState } from 'react';
 import { TreeViewBaseItem } from '@mui/x-tree-view';
 import { RichTreeView } from '@mui/x-tree-view/RichTreeView';
+import { Alert, Box, CircularProgress, Typography } from '@mui/material';
 import { AssignmentTreeItem, CourseTreeItem } from './types';
 
 interface FileTreeProps {
@@ -222,17 +223,32 @@ export default function FileTree({
   }, []);
 
   if (isLoading) {
-    return <p>Loading courses...</p>;
+    return (
+      <Box display="flex" alignItems="center" gap={1.5} py={1}>
+        <CircularProgress size={18} />
+        <Typography variant="body2" color="text.secondary">
+          Loading courses...
+        </Typography>
+      </Box>
+    );
   }
 
   if (error) {
-    return <p>Could not load courses.</p>;
+    return (
+      <Alert severity="error" variant="outlined">
+        Could not load courses.
+      </Alert>
+    );
   }
 
   const hasCourses = items.some((item) => (item.children?.length ?? 0) > 0);
 
   if (!hasCourses) {
-    return <p>No courses found.</p>;
+    return (
+      <Alert severity="info" variant="outlined">
+        No courses found.
+      </Alert>
+    );
   }
 
   const handleSelectionChange = (
@@ -271,10 +287,12 @@ export default function FileTree({
   };
 
   return (
-    <RichTreeView
-      items={items}
-      defaultExpandedItems={defaultExpandedItems}
-      onSelectedItemsChange={handleSelectionChange}
-    />
+    <Box sx={{ py: 0.5 }}>
+      <RichTreeView
+        items={items}
+        defaultExpandedItems={defaultExpandedItems}
+        onSelectedItemsChange={handleSelectionChange}
+      />
+    </Box>
   );
 }

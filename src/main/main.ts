@@ -17,6 +17,7 @@ import { resolveHtmlPath } from './util';
 import openLoginWindow from './brightspace/login';
 import { fetchCourses } from './brightspace/course';
 import { fetchAssignments } from './brightspace/assignment';
+import { testAI } from './ai';
 
 class AppUpdater {
   constructor() {
@@ -179,6 +180,7 @@ app
     session.defaultSession.setUserAgent(
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0',
     );
+    testAI();
     createWindow();
     app.on('activate', () => {
       // On macOS it's common to re-create a window in the app when the

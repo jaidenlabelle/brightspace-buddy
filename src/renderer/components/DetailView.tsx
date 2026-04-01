@@ -1,3 +1,4 @@
+import { Chip, Divider, Paper, Stack, Typography } from '@mui/material';
 import {
   AssignmentTreeItem,
   CourseTreeItem,
@@ -55,35 +56,73 @@ export default function DetailView({
       })()
     : null;
 
-  let detailContent = <p>Select a course or assignment to see details</p>;
+  let detailContent = (
+    <Typography variant="body1" color="text.secondary">
+      Select a course or assignment to see details.
+    </Typography>
+  );
 
   if (assignment) {
     detailContent = (
-      <>
-        <h2>{assignment.name}</h2>
-        <p>Starts At: {startsAt ?? 'No start date available'}</p>
-        <p>Ends At: {assignmentEndsAt ?? 'No end date available'}</p>
-        <p>Due At: {dueAt ?? 'No due date available'}</p>
-        <p>Grade: {gradeDisplay ?? 'No grade available'}</p>
-        <p>
-          Status: {getStatusLabel(assignment.status) ?? 'No status available'}
-        </p>
-      </>
+      <Stack spacing={1.5}>
+        <Typography variant="h5" fontWeight={700}>
+          {assignment.name}
+        </Typography>
+        <Divider />
+        <Typography variant="body1">
+          Starts At: {startsAt ?? 'No start date available'}
+        </Typography>
+        <Typography variant="body1">
+          Ends At: {assignmentEndsAt ?? 'No end date available'}
+        </Typography>
+        <Typography variant="body1">
+          Due At: {dueAt ?? 'No due date available'}
+        </Typography>
+        <Typography variant="body1">
+          Grade: {gradeDisplay ?? 'No grade available'}
+        </Typography>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography variant="body1">Status:</Typography>
+          <Chip label={getStatusLabel(assignment.status)} color="secondary" />
+        </Stack>
+      </Stack>
     );
   } else if (course) {
     detailContent = (
-      <>
-        <h2>{course.name}</h2>
-        <p>Full Code: {course.full_code}</p>
-        <p>Section: {course.section_number ?? 'No section available'}</p>
-        <p>
+      <Stack spacing={1.5}>
+        <Typography variant="h5" fontWeight={700}>
+          {course.name}
+        </Typography>
+        <Divider />
+        <Typography variant="body1">Full Code: {course.full_code}</Typography>
+        <Typography variant="body1">
+          Section: {course.section_number ?? 'No section available'}
+        </Typography>
+        <Typography variant="body1">
           Semester: {course.semester.year} {course.semester.term}
-        </p>
-        <p>Ends At: {endsAt}</p>
-        <p>Status: {course.is_active ? 'Active' : 'Inactive'}</p>
-      </>
+        </Typography>
+        <Typography variant="body1">Ends At: {endsAt}</Typography>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography variant="body1">Status:</Typography>
+          <Chip
+            label={course.is_active ? 'Active' : 'Inactive'}
+            color={course.is_active ? 'primary' : 'default'}
+          />
+        </Stack>
+      </Stack>
     );
   }
 
-  return <div className="detail-view">{detailContent}</div>;
+  return (
+    <Paper
+      variant="outlined"
+      sx={{
+        p: { xs: 2, md: 2.5 },
+        height: '100%',
+        bgcolor: 'background.paper',
+      }}
+    >
+      {detailContent}
+    </Paper>
+  );
 }

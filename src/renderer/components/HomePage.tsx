@@ -1,12 +1,16 @@
 import { useState } from 'react';
 import {
+  Box,
   DialogActions,
+  DialogContentText,
   DialogTitle,
   Button,
   DialogContent,
   Dialog,
+  Paper,
+  Stack,
+  Typography,
 } from '@mui/material';
-import styles from '../styles/HomePage.module.scss';
 import UserProfile from './UserProfile';
 import DetailView from './DetailView';
 import Dashboard from './Dashboard';
@@ -60,12 +64,22 @@ export default function Home({ onLogout }: { onLogout: () => void }) {
   };
 
   return (
-    <div className={styles.home}>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        px: { xs: 2, md: 3 },
+        py: { xs: 2, md: 2.5 },
+        background:
+          'linear-gradient(155deg, rgba(244,240,230,1) 0%, rgba(237,229,214,1) 100%)',
+      }}
+    >
       <UserProfile name="Jaiden Labelle" onClick={handleLogoutDialogOpen} />
       <Dialog open={logoutDialogOpen} onClose={handleLogoutDialogClose}>
         <DialogTitle>Log Out</DialogTitle>
         <DialogContent>
-          <p>Are you sure you want to log out?</p>
+          <DialogContentText>
+            Are you sure you want to log out?
+          </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleLogoutDialogClose}>Cancel</Button>
@@ -74,17 +88,42 @@ export default function Home({ onLogout }: { onLogout: () => void }) {
           </Button>
         </DialogActions>
       </Dialog>
-      <div className="divider" />
-      <div className={styles.masterDetail}>
-        <div className={styles.master}>
-          <h2>Explorer</h2>
+      <Stack
+        direction={{ xs: 'column', md: 'row' }}
+        spacing={2}
+        alignItems="stretch"
+      >
+        <Paper
+          elevation={2}
+          sx={{
+            width: { xs: '100%', md: 360 },
+            p: 2,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1,
+            border: '1px solid',
+            borderColor: 'divider',
+          }}
+        >
+          <Typography variant="h6" fontWeight={700}>
+            Explorer
+          </Typography>
           <FileTree
             onSelectCourse={handleSelectCourse}
             onSelectAssignment={handleSelectAssignment}
             onSelectDashboard={handleSelectDashboard}
           />
-        </div>
-        <div className={styles.detail}>
+        </Paper>
+        <Paper
+          elevation={1}
+          sx={{
+            flex: 1,
+            p: { xs: 2, md: 2.5 },
+            border: '1px solid',
+            borderColor: 'divider',
+            minHeight: { md: 'calc(100vh - 120px)' },
+          }}
+        >
           {selectedView.type === 'dashboard' ? (
             <Dashboard />
           ) : (
@@ -99,8 +138,8 @@ export default function Home({ onLogout }: { onLogout: () => void }) {
               }
             />
           )}
-        </div>
-      </div>
-    </div>
+        </Paper>
+      </Stack>
+    </Box>
   );
 }
