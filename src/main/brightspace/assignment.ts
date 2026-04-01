@@ -1,5 +1,5 @@
 import request from "./brightspace";
-import type { Fraction } from "./fraction";
+import { fetchGrade, Grade } from "./grade";
 import Route from "./route";
 
 export interface Assignment {
@@ -9,7 +9,7 @@ export interface Assignment {
   ends_at: Date | null;
   due_at: Date | null;
 
-  score: Fraction | null;
+  grade: Grade | null;
 
   completion_status: string | null;
   evaluation_status: string | null;
@@ -74,7 +74,17 @@ export interface DropboxFolder {
   AllowOnlyUsersWithSpecialAccess: boolean | null;
 }
 
-function assignmentFromDropboxFolder(folder: DropboxFolder): Assignment {
+async function assignmentFromDropboxFolder(courseOrgUnitId: number, folder: DropboxFolder): Promise<Assignment> {
+  let grade: Grade | null = null;
+
+  if (typeof folder.GradeItemId === "number") {
+    try {
+      grade = await fetchGrade(courseOrgUnitId, String(folder.GradeItemId));
+    } catch {
+      grade = null;
+    }
+  }
+
   return {
     name: folder.Name,
     starts_at: folder.Availability?.StartDate ? new Date(folder.Availability.StartDate) : null,
@@ -82,14 +92,14 @@ function assignmentFromDropboxFolder(folder: DropboxFolder): Assignment {
     due_at: folder.DueDate ? new Date(folder.DueDate) : null,
     completion_status: null, // Placeholder, as this info isn't in the current schema
     evaluation_status: null,
-    score: null
+    grade: grade,
   };
 }
 
 export async function fetchAssignments(courseOrgUnitId: number): Promise<Assignment[]> {
   const response = await request(new Route("GET", `/d2l/api/le/1.58/${courseOrgUnitId}/dropbox/folders/`));
 
-  console.log("Assignments API response:", response);
+  // console.debug("Assignments API response:", response);
   const folders = Array.isArray(response)
     ? response
     : Array.isArray(response?.Objects)
@@ -98,8 +108,17 @@ export async function fetchAssignments(courseOrgUnitId: number): Promise<Assignm
         ? response.Items
         : [];
 
-  return folders.map((folder: DropboxFolder) => {
-    console.log("Processing folder:", folder);
-    return assignmentFromDropboxFolder(folder);
-  });
+  const assignments = await Promise.all(
+    folders.map(async (folder: DropboxFolder) => {
+      try {
+        return await assignmentFromDropboxFolder(courseOrgUnitId, folder);
+      } catch {
+        return null;
+      }
+    }),
+  );
+
+  return assignments.filter(
+    (assignment): assignment is Assignment => assignment !== null,
+  );
 }

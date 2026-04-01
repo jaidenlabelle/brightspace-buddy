@@ -9,13 +9,42 @@ import {
 import styles from '../styles/HomePage.module.scss';
 import UserProfile from './UserProfile';
 import DetailView from './DetailView';
-import FileTree, { CourseTreeItem } from './FileTree';
+import Dashboard from './Dashboard';
+import FileTree from './FileTree';
+import { AssignmentTreeItem, CourseTreeItem } from './types';
+
+type SelectedView =
+  | { type: 'dashboard' }
+  | { type: 'course'; course: CourseTreeItem }
+  | { type: 'assignment'; assignment: AssignmentTreeItem };
 
 export default function Home({ onLogout }: { onLogout: () => void }) {
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
-  const [selectedCourse, setSelectedCourse] = useState<CourseTreeItem | null>(
-    null,
-  );
+  const [selectedView, setSelectedView] = useState<SelectedView>({
+    type: 'dashboard',
+  });
+
+  const handleSelectCourse = (course: CourseTreeItem | null) => {
+    if (course) {
+      setSelectedView({ type: 'course', course });
+      return;
+    }
+
+    setSelectedView({ type: 'dashboard' });
+  };
+
+  const handleSelectAssignment = (assignment: AssignmentTreeItem | null) => {
+    if (assignment) {
+      setSelectedView({ type: 'assignment', assignment });
+      return;
+    }
+
+    setSelectedView({ type: 'dashboard' });
+  };
+
+  const handleSelectDashboard = () => {
+    setSelectedView({ type: 'dashboard' });
+  };
 
   const handleLogoutDialogOpen = () => {
     setLogoutDialogOpen(true);
@@ -49,10 +78,27 @@ export default function Home({ onLogout }: { onLogout: () => void }) {
       <div className={styles.masterDetail}>
         <div className={styles.master}>
           <h2>Explorer</h2>
-          <FileTree onSelectCourse={setSelectedCourse} />
+          <FileTree
+            onSelectCourse={handleSelectCourse}
+            onSelectAssignment={handleSelectAssignment}
+            onSelectDashboard={handleSelectDashboard}
+          />
         </div>
         <div className={styles.detail}>
-          <DetailView course={selectedCourse} />
+          {selectedView.type === 'dashboard' ? (
+            <Dashboard />
+          ) : (
+            <DetailView
+              course={
+                selectedView.type === 'course' ? selectedView.course : null
+              }
+              assignment={
+                selectedView.type === 'assignment'
+                  ? selectedView.assignment
+                  : null
+              }
+            />
+          )}
         </div>
       </div>
     </div>

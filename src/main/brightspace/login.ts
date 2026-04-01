@@ -1,6 +1,7 @@
 import { BrowserWindow } from 'electron';
 import { fetchCourses } from './course';
 import { fetchAssignments } from './assignment';
+import { fetchGrades } from './grade';
 
 type LoginWindowCallbacks = {
   onLoginSuccessful: () => void;
@@ -41,6 +42,10 @@ export default function openLoginWindow({
       // fetchAssignments(847673).catch((error) => {
       //   console.error('Error fetching assignments after login:', error);
       // });
+
+      fetchGrades(847673).catch((error) => {
+        console.error('Error fetching grades after login:', error);
+      });
 
       loginCompleted = true;
       onLoginSuccessful();
