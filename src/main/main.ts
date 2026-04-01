@@ -17,7 +17,7 @@ import { resolveHtmlPath } from './util';
 import openLoginWindow from './brightspace/login';
 import { fetchCourses } from './brightspace/course';
 import { fetchAssignments } from './brightspace/assignment';
-import { testAI } from './ai';
+import { summarizeContentFile } from './ai';
 
 class AppUpdater {
   constructor() {
@@ -76,6 +76,21 @@ ipcMain.handle('get-content', async (_event, courseOrgUnitId: number) => {
   const { fetchContent } = require('./brightspace/content');
   return fetchContent(courseOrgUnitId);
 });
+
+ipcMain.handle(
+  'summarize-content-item',
+  async (_event, url: string, title: string) => {
+    if (!isAuthenticated) {
+      return 'You need to be logged in to summarize content files.';
+    }
+
+    if (!url) {
+      return 'No file URL was provided.';
+    }
+
+    return summarizeContentFile(url, title);
+  },
+);
 
 ipcMain.on('download-content-item', (_event, url: string) => {
   if (!url) {

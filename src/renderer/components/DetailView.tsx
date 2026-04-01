@@ -1,4 +1,4 @@
-import { type ReactElement } from 'react';
+import { type ReactElement, useEffect, useState } from 'react';
 import { Button, Chip, Divider, Paper, Stack, Typography } from '@mui/material';
 import {
   AssignmentTreeItem,
@@ -35,6 +35,10 @@ export default function DetailView({
   contentModule: ContentModule | null;
   contentItem: ContentModuleItem | null;
 }) {
+  const [summary, setSummary] = useState<string | null>(null);
+  const [isSummarizing, setIsSummarizing] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+
   const endsAt = course ? new Date(course.ends_at).toLocaleDateString() : null;
   const startsAt = assignment?.starts_at
     ? new Date(assignment.starts_at).toLocaleDateString()
@@ -71,6 +75,12 @@ export default function DetailView({
       }
     : null;
 
+  useEffect(() => {
+    setSummary(null);
+    setSummaryError(null);
+    setIsSummarizing(false);
+  }, [contentItemDetails?.url, contentModule?.Id]);
+
   const renderDownloadButton = (url: string, label = 'Download file') => (
     <Button
       variant="contained"
@@ -86,6 +96,43 @@ export default function DetailView({
       }}
     >
       {url ? label : 'Download unavailable'}
+    </Button>
+  );
+
+  const renderSummarizeButton = (url: string, title: string) => (
+    <Button
+      variant="outlined"
+      color="secondary"
+      disabled={!url || isSummarizing}
+      sx={{ alignSelf: 'flex-start' }}
+      onClick={async () => {
+        if (!url) {
+          return;
+        }
+
+        setIsSummarizing(true);
+        setSummary(null);
+        setSummaryError(null);
+
+        try {
+          const result = (await window.electron.ipcRenderer.invoke(
+            'summarize-content-item',
+            url,
+            title,
+          )) as string;
+          setSummary(result);
+        } catch (error) {
+          setSummaryError(
+            error instanceof Error
+              ? error.message
+              : 'Failed to summarize file.',
+          );
+        } finally {
+          setIsSummarizing(false);
+        }
+      }}
+    >
+      {isSummarizing ? 'Summarizing...' : 'Summarize with AI'}
     </Button>
   );
 
@@ -179,7 +226,33 @@ export default function DetailView({
           {contentItemDetails.title}
         </Typography>
         <Divider />
-        {renderDownloadButton(contentItemDetails.url)}
+        <Stack direction="row" spacing={1} flexWrap="wrap">
+          {renderDownloadButton(contentItemDetails.url)}
+          {renderSummarizeButton(
+            contentItemDetails.url,
+            contentItemDetails.title,
+          )}
+        </Stack>
+        {summaryError ? (
+          <Typography variant="body2" color="error">
+            {summaryError}
+          </Typography>
+        ) : null}
+        {summary ? (
+          <Paper
+            variant="outlined"
+            sx={{ p: 1.5, bgcolor: 'background.default' }}
+          >
+            <Stack spacing={0.75}>
+              <Typography variant="subtitle2" fontWeight={700}>
+                AI Summary
+              </Typography>
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                {summary}
+              </Typography>
+            </Stack>
+          </Paper>
+        ) : null}
       </Stack>
     );
   } else if (contentModule) {
