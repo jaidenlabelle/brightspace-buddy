@@ -1,4 +1,6 @@
 import { BrowserWindow } from 'electron';
+import { fetchCourses } from './course';
+import { fetchAssignments } from './assignment';
 
 type LoginWindowCallbacks = {
   onLoginSuccessful: () => void;
@@ -27,10 +29,19 @@ export default function openLoginWindow({
   });
 
   // Check if url contains brightspace.algonquincollege.com/d2l/home
-  loginWindow.webContents.on('did-navigate', (event, url) => {
+  loginWindow.webContents.on('did-navigate', async (event, url) => {
     console.log('Navigated to URL:', url);
     if (url.includes('brightspace.algonquincollege.com/d2l/home')) {
       console.log('Detected successful login. Closing login window.');
+
+      // fetchCourses().catch((error) => {
+      //   console.error('Error fetching courses after login:', error);
+      // });
+
+      fetchAssignments(847673).catch((error) => {
+        console.error('Error fetching assignments after login:', error);
+      });
+
       loginCompleted = true;
       onLoginSuccessful();
       loginWindow.close();

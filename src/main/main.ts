@@ -15,6 +15,8 @@ import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 import openLoginWindow from './brightspace/login';
+import { fetchCourses } from './brightspace/course';
+import { fetchAssignments } from './brightspace/assignment';
 
 class AppUpdater {
   constructor() {
@@ -46,6 +48,10 @@ ipcMain.on('open-login-window', (event) => {
 });
 
 ipcMain.handle('get-auth-status', async () => {
+  fetchAssignments(123).catch((error) => {
+    console.error('Error fetching assignments after login:', error);
+  });
+
   return isAuthenticated;
 });
 
@@ -158,6 +164,9 @@ app.on('window-all-closed', () => {
 app
   .whenReady()
   .then(() => {
+    session.defaultSession.setUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0',
+    );
     createWindow();
     app.on('activate', () => {
       // On macOS it's common to re-create a window in the app when the
