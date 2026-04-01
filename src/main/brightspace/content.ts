@@ -1,54 +1,52 @@
-import request from "./brightspace";
-import Route from "./route";
+import request from './brightspace';
+import Route from './route';
 
-interface Module {
-  Description: {
-    Text: string;
-    Html: string;
-  };
-  ParentModuleId: number | null;
-  ModuleDueDate: string | null;
-  Structure: unknown[]; // replace with a more specific type if you know the structure
-  ModuleStartDate: string | null;
-  ModuleEndDate: string | null;
-  IsHidden: boolean;
-  IsLocked: boolean;
+interface RootContentModule {
   Id: number;
   Title: string;
-  ShortTitle: string;
-  Type: number;
-  LastModifiedDate: string; // could also be Date if you parse it
+  Structure: unknown[];
 }
 
-interface Section {
-  Name: string;
-  Items: Item[];
-}
-
-interface Item {
+export interface ContentModuleItem {
   Id: number;
   Title: string;
+  Url: string;
 }
 
-interface ContentItem {
+export interface ContentModule {
   Id: number;
   Title: string;
-  ShortTitle: string;
-  Type: number;
-  LastModifiedDate: string; // could also be Date if you parse it
+  Structure: ContentModuleItem[];
 }
 
-export async function fetchContent(courseOrgUnitId: number): Promise<Module[]> {
-  const response = await request(new Route("GET", `/d2l/api/le/1.58/${courseOrgUnitId}/content/root/`));
+export async function fetchContent(courseOrgUnitId: number): Promise<ContentModule[]> {
+  const response = await request(
+    new Route('GET', `/d2l/api/le/1.58/${courseOrgUnitId}/content/root/`),
+  );
 
-  for (const module of Array.isArray(response) ? response as Module[] : []) {
-    console.log(`Module: ${module.Title} (ID: ${module.Id})`);
+  if (!Array.isArray(response)) {
+    throw new Error('Unexpected API response format: expected an array of content modules');
+  }
 
+  for (const module of response) {
+    // Get structure for each module
+    const structureResponse = await request(
+      new Route('GET', `/d2l/api/le/1.58/${courseOrgUnitId}/content/modules/${module.Id}/structure/`),
+    );
 
-    for (const item of module.Structure as unknown as ContentItem[]) {
-      console.log(`  - Item:`, item);
+    module.Structure = structureResponse;
 
+    // Set URL for each item in the structure
+    if (Array.isArray(module.Structure)) {
+      for (const item of module.Structure) {
+        if (typeof item.Url === 'string') {
+          item.Url = "https://brightspace.algonquincollege.com" + item.Url;
+        } else {
+          console.warn(`Unexpected item format in content module structure:`, item);
+        }
+      }
     }
   }
-  return response;
+
+  return response as ContentModule[];
 }

@@ -2,11 +2,18 @@ import { SyntheticEvent, useEffect, useState } from 'react';
 import { TreeViewBaseItem } from '@mui/x-tree-view';
 import { RichTreeView } from '@mui/x-tree-view/RichTreeView';
 import { Alert, Box, CircularProgress, Typography } from '@mui/material';
-import { AssignmentTreeItem, CourseTreeItem, ContentModule } from './types';
+import {
+  AssignmentTreeItem,
+  ContentModule,
+  ContentModuleItem,
+  CourseTreeItem,
+} from './types';
 
 interface FileTreeProps {
   onSelectCourse: (course: CourseTreeItem | null) => void;
   onSelectAssignment: (assignment: AssignmentTreeItem | null) => void;
+  onSelectContentModule: (contentModule: ContentModule | null) => void;
+  onSelectContentItem: (contentItem: ContentModuleItem | null) => void;
   onSelectDashboard: () => void;
 }
 
@@ -20,6 +27,8 @@ interface TreeData {
   items: TreeViewBaseItem[];
   courseByItemId: Map<string, CourseTreeItem>;
   assignmentByItemId: Map<string, AssignmentTreeItem>;
+  contentModuleByItemId: Map<string, ContentModule>;
+  contentItemByItemId: Map<string, ContentModuleItem>;
   defaultExpandedItems: string[];
 }
 
@@ -125,6 +134,8 @@ function buildTreeData(
 
   const assignmentByItemId = new Map<string, AssignmentTreeItem>();
   const courseByItemId = new Map<string, CourseTreeItem>();
+  const contentModuleByItemId = new Map<string, ContentModule>();
+  const contentItemByItemId = new Map<string, ContentModuleItem>();
 
   const semesterItems: TreeViewBaseItem[] = sortedSemesters.map((entry) => {
     const sortedCourses = [...entry.courses].sort((a, b) =>
@@ -156,10 +167,17 @@ function buildTreeData(
         const contentChildren: TreeViewBaseItem[] = contentModules.map(
           (module) => {
             const moduleId = `${courseId}-content-module-${module.Id}`;
-            const items = (module.Structure ?? []).map((item, index) => ({
-              id: `${moduleId}-item-${index}`,
-              label: item.Title,
-            }));
+            contentModuleByItemId.set(moduleId, module);
+
+            const items = (module.Structure ?? []).map((item, index) => {
+              const itemId = `${moduleId}-item-${index}`;
+              contentItemByItemId.set(itemId, item);
+
+              return {
+                id: itemId,
+                label: item.Title,
+              };
+            });
 
             return {
               id: moduleId,
@@ -200,6 +218,8 @@ function buildTreeData(
     items: [{ id: 'dashboard', label: 'Dashboard' }, ...semesterItems],
     courseByItemId,
     assignmentByItemId,
+    contentModuleByItemId,
+    contentItemByItemId,
     defaultExpandedItems: sortedSemesters
       .filter((entry) => entry.hasActiveCourse)
       .map((entry) => semesterId(entry.semester)),
@@ -209,6 +229,8 @@ function buildTreeData(
 export default function FileTree({
   onSelectCourse,
   onSelectAssignment,
+  onSelectContentModule,
+  onSelectContentItem,
   onSelectDashboard,
 }: FileTreeProps) {
   const [items, setItems] = useState<TreeViewBaseItem[]>([]);
@@ -217,6 +239,12 @@ export default function FileTree({
   >(new Map());
   const [assignmentByItemId, setAssignmentByItemId] = useState<
     Map<string, AssignmentTreeItem>
+  >(new Map());
+  const [contentModuleByItemId, setContentModuleByItemId] = useState<
+    Map<string, ContentModule>
+  >(new Map());
+  const [contentItemByItemId, setContentItemByItemId] = useState<
+    Map<string, ContentModuleItem>
   >(new Map());
   const [defaultExpandedItems, setDefaultExpandedItems] = useState<string[]>(
     [],
@@ -256,6 +284,8 @@ export default function FileTree({
         setItems(treeData.items);
         setCourseByItemId(treeData.courseByItemId);
         setAssignmentByItemId(treeData.assignmentByItemId);
+        setContentModuleByItemId(treeData.contentModuleByItemId);
+        setContentItemByItemId(treeData.contentItemByItemId);
         setDefaultExpandedItems(treeData.defaultExpandedItems);
       } catch (err) {
         if (!cancelled) {
@@ -326,19 +356,43 @@ export default function FileTree({
     const selectedAssignment = assignmentByItemId.get(selectedItemId);
     if (selectedAssignment) {
       onSelectCourse(null);
+      onSelectContentModule(null);
+      onSelectContentItem(null);
       onSelectAssignment(selectedAssignment);
+      return;
+    }
+
+    const selectedContentItem = contentItemByItemId.get(selectedItemId);
+    if (selectedContentItem) {
+      onSelectCourse(null);
+      onSelectAssignment(null);
+      onSelectContentModule(null);
+      onSelectContentItem(selectedContentItem);
+      return;
+    }
+
+    const selectedContentModule = contentModuleByItemId.get(selectedItemId);
+    if (selectedContentModule) {
+      onSelectCourse(null);
+      onSelectAssignment(null);
+      onSelectContentItem(null);
+      onSelectContentModule(selectedContentModule);
       return;
     }
 
     const selectedCourse = courseByItemId.get(selectedItemId);
     if (selectedCourse) {
       onSelectAssignment(null);
+      onSelectContentModule(null);
+      onSelectContentItem(null);
       onSelectCourse(selectedCourse);
       return;
     }
 
     onSelectCourse(null);
     onSelectAssignment(null);
+    onSelectContentModule(null);
+    onSelectContentItem(null);
   };
 
   return (

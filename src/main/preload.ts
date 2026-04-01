@@ -12,7 +12,8 @@ export type Channels = 'ipc-example'
 export type IpcInvokeChannels =
   | 'get-auth-status'
   | 'get-courses'
-  | 'get-assignments';
+  | 'get-assignments'
+  | 'get-content';
 
 const electronHandler = {
   ipcRenderer: {

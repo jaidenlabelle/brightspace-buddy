@@ -48,6 +48,7 @@ export interface AssignmentTreeItem {
 export interface ContentModuleItem {
   Id: number;
   Title: string;
+  Url: string;
 }
 
 export interface ContentModule {

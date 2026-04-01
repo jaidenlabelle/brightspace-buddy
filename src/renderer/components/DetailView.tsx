@@ -1,6 +1,8 @@
-import { Chip, Divider, Paper, Stack, Typography } from '@mui/material';
+import { Chip, Divider, Link, Paper, Stack, Typography } from '@mui/material';
 import {
   AssignmentTreeItem,
+  ContentModule,
+  ContentModuleItem,
   CourseTreeItem,
   EntityDropboxStatus,
 } from './types';
@@ -23,9 +25,13 @@ function getStatusLabel(status: EntityDropboxStatus): string {
 export default function DetailView({
   course,
   assignment,
+  contentModule,
+  contentItem,
 }: {
   course: CourseTreeItem | null;
   assignment: AssignmentTreeItem | null;
+  contentModule: ContentModule | null;
+  contentItem: ContentModuleItem | null;
 }) {
   const endsAt = course ? new Date(course.ends_at).toLocaleDateString() : null;
   const startsAt = assignment?.starts_at
@@ -56,9 +62,18 @@ export default function DetailView({
       })()
     : null;
 
+  const contentItems = contentModule?.Structure ?? [];
+
+  const contentItemDetails = contentItem
+    ? {
+        title: contentItem.Title,
+        url: contentItem.Url,
+      }
+    : null;
+
   let detailContent = (
     <Typography variant="body1" color="text.secondary">
-      Select a course or assignment to see details.
+      Select a course, assignment, or content item to see details.
     </Typography>
   );
 
@@ -85,6 +100,55 @@ export default function DetailView({
           <Typography variant="body1">Status:</Typography>
           <Chip label={getStatusLabel(assignment.status)} color="secondary" />
         </Stack>
+      </Stack>
+    );
+  } else if (contentItemDetails) {
+    detailContent = (
+      <Stack spacing={1.5}>
+        <Typography variant="h5" fontWeight={700}>
+          {contentItemDetails.title}
+        </Typography>
+        <Divider />
+        <Typography variant="body1">
+          URL:{' '}
+          <Link href={contentItemDetails.url} target="_blank" rel="noreferrer">
+            Open content item
+          </Link>
+        </Typography>
+      </Stack>
+    );
+  } else if (contentModule) {
+    detailContent = (
+      <Stack spacing={1.5}>
+        <Typography variant="h5" fontWeight={700}>
+          {contentModule.Title}
+        </Typography>
+        <Divider />
+        <Typography variant="body1">Items: {contentItems.length}</Typography>
+        {contentItems.length > 0 ? (
+          <Stack spacing={1}>
+            {contentItems.map((item) => (
+              <Paper
+                key={item.Id}
+                variant="outlined"
+                sx={{ p: 1.25, bgcolor: 'background.default' }}
+              >
+                <Stack spacing={0.5}>
+                  <Typography variant="subtitle1" fontWeight={600}>
+                    {item.Title}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {item.Url}
+                  </Typography>
+                </Stack>
+              </Paper>
+            ))}
+          </Stack>
+        ) : (
+          <Typography variant="body1" color="text.secondary">
+            No items found in this content section.
+          </Typography>
+        )}
       </Stack>
     );
   } else if (course) {

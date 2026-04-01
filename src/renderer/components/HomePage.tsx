@@ -15,12 +15,19 @@ import UserProfile from './UserProfile';
 import DetailView from './DetailView';
 import Dashboard from './Dashboard';
 import FileTree from './FileTree';
-import { AssignmentTreeItem, CourseTreeItem } from './types';
+import {
+  AssignmentTreeItem,
+  ContentModule,
+  ContentModuleItem,
+  CourseTreeItem,
+} from './types';
 
 type SelectedView =
   | { type: 'dashboard' }
   | { type: 'course'; course: CourseTreeItem }
-  | { type: 'assignment'; assignment: AssignmentTreeItem };
+  | { type: 'assignment'; assignment: AssignmentTreeItem }
+  | { type: 'content-module'; contentModule: ContentModule }
+  | { type: 'content-item'; contentItem: ContentModuleItem };
 
 export default function Home({ onLogout }: { onLogout: () => void }) {
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
@@ -40,6 +47,24 @@ export default function Home({ onLogout }: { onLogout: () => void }) {
   const handleSelectAssignment = (assignment: AssignmentTreeItem | null) => {
     if (assignment) {
       setSelectedView({ type: 'assignment', assignment });
+      return;
+    }
+
+    setSelectedView({ type: 'dashboard' });
+  };
+
+  const handleSelectContentModule = (contentModule: ContentModule | null) => {
+    if (contentModule) {
+      setSelectedView({ type: 'content-module', contentModule });
+      return;
+    }
+
+    setSelectedView({ type: 'dashboard' });
+  };
+
+  const handleSelectContentItem = (contentItem: ContentModuleItem | null) => {
+    if (contentItem) {
+      setSelectedView({ type: 'content-item', contentItem });
       return;
     }
 
@@ -111,6 +136,8 @@ export default function Home({ onLogout }: { onLogout: () => void }) {
           <FileTree
             onSelectCourse={handleSelectCourse}
             onSelectAssignment={handleSelectAssignment}
+            onSelectContentModule={handleSelectContentModule}
+            onSelectContentItem={handleSelectContentItem}
             onSelectDashboard={handleSelectDashboard}
           />
         </Paper>
@@ -134,6 +161,16 @@ export default function Home({ onLogout }: { onLogout: () => void }) {
               assignment={
                 selectedView.type === 'assignment'
                   ? selectedView.assignment
+                  : null
+              }
+              contentModule={
+                selectedView.type === 'content-module'
+                  ? selectedView.contentModule
+                  : null
+              }
+              contentItem={
+                selectedView.type === 'content-item'
+                  ? selectedView.contentItem
                   : null
               }
             />
