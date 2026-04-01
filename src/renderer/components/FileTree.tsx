@@ -5,6 +5,7 @@ import { RichTreeView } from '@mui/x-tree-view/RichTreeView';
 interface CourseTreeItem {
   org_unit_id: number;
   name: string;
+  section_number: string | null;
   is_active: boolean;
   semester: {
     year: number;
@@ -104,7 +105,9 @@ export default function FileTree() {
               label: `${semesterLabel(entry.semester)} (${sortedCourses.length})`,
               children: sortedCourses.map((course) => ({
                 id: `course-${course.org_unit_id}`,
-                label: course.name,
+                label: course.section_number
+                  ? `${course.name} (${course.section_number})`
+                  : course.name,
               })),
             };
           },

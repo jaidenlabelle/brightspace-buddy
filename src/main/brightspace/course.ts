@@ -7,6 +7,7 @@ export interface Course {
   full_code: string;
   full_name: string;
   name: string;
+  section_number: string | null;
   semester: Semester;
   ends_at: Date;
   is_active: boolean;
@@ -37,10 +38,15 @@ export function courseFromString(
 
   const endsAt = parseDate(match[6]);
 
+  // Extract section number from fullCode if present (format: "CST8413_300_301" or "CST8413")
+  const fullCodeParts = fullCode.split("_");
+  const section_number = fullCodeParts.length > 1 ? fullCodeParts[1] : null;
+
   return {
     full_code: fullCode,
     full_name: courseString,
     name,
+    section_number,
     semester,
     ends_at: endsAt,
     is_active: isActive,
@@ -86,7 +92,7 @@ export function courseFromOrgUnitInfo(
   const full_name = orgUnit.Name;
   const full_code = orgUnit.Code;
 
-  const { name, semester } = parseCourseFullName(full_name);
+  const { name, semester, section_number } = parseCourseFullName(full_name);
 
   const access = myOrgUnitInfo.Access;
   const ends_at = access.EndDate ? new Date(access.EndDate) : new Date(0);
@@ -97,6 +103,7 @@ export function courseFromOrgUnitInfo(
     full_code: orgUnit.Code,
     full_name: orgUnit.Name,
     name: name,
+    section_number: section_number,
     semester: semester,
     ends_at: ends_at,
     is_active: is_active,
@@ -104,9 +111,9 @@ export function courseFromOrgUnitInfo(
   }
 }
 
-function parseCourseFullName(courseFullName: string): { name: string, semester: Semester } {
+function parseCourseFullName(courseFullName: string): { name: string, semester: Semester, section_number: string | null } {
   // Expected format: "25F_CST8413_300_301 Data Warehousing and Adv. Bus. Int."
-  // Results in: name: "Data Warehousing and Adv. Bus. Int.", semester: "25F"
+  // Results in: name: "Data Warehousing and Adv. Bus. Int.", semester: "25F", section_number: "300"
 
   const firstSpaceIndex = courseFullName.indexOf(" ");
 
@@ -117,13 +124,16 @@ function parseCourseFullName(courseFullName: string): { name: string, semester: 
   const prefix = courseFullName.slice(0, firstSpaceIndex); // "25F_CST8413_300_301"
   const name = courseFullName.slice(firstSpaceIndex + 1).trim();
 
-  const semester = prefix.split("_")[0]; // "25F"
+  const prefixParts = prefix.split("_");
+  const semester = prefixParts[0]; // "25F"
+  const section_number = prefixParts.length > 2 ? prefixParts[2] : null; // "300"
 
   const semesterObj = semesterFromCode(semester);
 
   return {
     name,
     semester: semesterObj,
+    section_number,
   };
 }
 
