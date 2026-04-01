@@ -5,6 +5,14 @@ export interface Semester {
   term: SemesterTerm;
 }
 
+export enum EntityDropboxStatus {
+  Unsubmitted = 0,
+  Submitted = 1,
+  Draft = 2,
+  Published = 3,
+}
+
+
 export interface CourseTreeItem {
   full_code: string;
   full_name: string;
@@ -34,6 +42,5 @@ export interface AssignmentTreeItem {
     } | null;
     comments: string;
   } | null;
-  completion_status: string | null;
-  evaluation_status: string | null;
+  status: EntityDropboxStatus;
 }

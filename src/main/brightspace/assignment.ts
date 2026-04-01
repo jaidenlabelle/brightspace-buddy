@@ -11,10 +11,25 @@ export interface Assignment {
 
   grade: Grade | null;
 
-  completion_status: string | null;
-  evaluation_status: string | null;
+  status: EntityDropboxStatus;
 }
 
+export enum EntityDropboxStatus {
+  Unsubmitted = 0,
+  Submitted = 1,
+  Draft = 2,
+  Published = 3,
+}
+
+export function getStatusLabel(status: EntityDropboxStatus): string {
+  switch (status) {
+    case EntityDropboxStatus.Unsubmitted: return "Unsubmitted";
+    case EntityDropboxStatus.Submitted: return "Submitted";
+    case EntityDropboxStatus.Draft: return "Draft";
+    case EntityDropboxStatus.Published: return "Published";
+    default: return "Unknown";
+  }
+}
 
 export interface FileAttachment {
   FileId: number;
@@ -76,6 +91,7 @@ export interface DropboxFolder {
 
 async function assignmentFromDropboxFolder(courseOrgUnitId: number, folder: DropboxFolder): Promise<Assignment> {
   let grade: Grade | null = null;
+  let status: EntityDropboxStatus | null = null;
 
   if (typeof folder.GradeItemId === "number") {
     try {
@@ -85,15 +101,27 @@ async function assignmentFromDropboxFolder(courseOrgUnitId: number, folder: Drop
     }
   }
 
+  try {
+    const submissions = await fetchAssignmentSubmissions(courseOrgUnitId, folder.Id);
+    status = submissions[0]?.Status;
+    console.log(`Fetched submissions for folder ${folder.Id}, status: ${status}`, submissions);
+  } catch {
+    status = null;
+  }
+
+
   return {
     name: folder.Name,
     starts_at: folder.Availability?.StartDate ? new Date(folder.Availability.StartDate) : null,
     ends_at: folder.Availability?.EndDate ? new Date(folder.Availability.EndDate) : null,
     due_at: folder.DueDate ? new Date(folder.DueDate) : null,
-    completion_status: null, // Placeholder, as this info isn't in the current schema
-    evaluation_status: null,
+    status: status ?? 0, // Default to 0 if status is null
     grade: grade,
   };
+}
+
+function fetchAssignmentSubmissions(courseOrgUnitId: number, folderId: number) {
+  return request(new Route("GET", `/d2l/api/le/1.58/${courseOrgUnitId}/dropbox/folders/${folderId}/submissions/`));
 }
 
 export async function fetchAssignments(courseOrgUnitId: number): Promise<Assignment[]> {

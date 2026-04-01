@@ -1,4 +1,23 @@
-import { AssignmentTreeItem, CourseTreeItem } from './types';
+import {
+  AssignmentTreeItem,
+  CourseTreeItem,
+  EntityDropboxStatus,
+} from './types';
+
+function getStatusLabel(status: EntityDropboxStatus): string {
+  switch (status) {
+    case EntityDropboxStatus.Unsubmitted:
+      return 'Unsubmitted';
+    case EntityDropboxStatus.Submitted:
+      return 'Submitted';
+    case EntityDropboxStatus.Draft:
+      return 'Draft';
+    case EntityDropboxStatus.Published:
+      return 'Grade Published';
+    default:
+      return 'Unknown';
+  }
+}
 
 export default function DetailView({
   course,
@@ -47,12 +66,7 @@ export default function DetailView({
         <p>Due At: {dueAt ?? 'No due date available'}</p>
         <p>Grade: {gradeDisplay ?? 'No grade available'}</p>
         <p>
-          Completion Status:{' '}
-          {assignment.completion_status ?? 'No completion status available'}
-        </p>
-        <p>
-          Evaluation Status:{' '}
-          {assignment.evaluation_status ?? 'No evaluation status available'}
+          Status: {getStatusLabel(assignment.status) ?? 'No status available'}
         </p>
       </>
     );
