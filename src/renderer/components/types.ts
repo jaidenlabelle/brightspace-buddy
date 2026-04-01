@@ -45,14 +45,20 @@ export interface AssignmentTreeItem {
   status: EntityDropboxStatus;
 }
 
-export interface ContentModuleItem {
+export interface ContentFileNode {
+  kind: 'file';
   Id: number;
   Title: string;
   Url: string;
 }
 
-export interface ContentModule {
+export interface ContentFolderNode {
+  kind: 'folder';
   Id: number;
   Title: string;
-  Structure: ContentModuleItem[];
+  Children: ContentNode[];
 }
+
+export type ContentNode = ContentFileNode | ContentFolderNode;
+export type ContentModuleItem = ContentFileNode;
+export type ContentModule = ContentFolderNode;

@@ -6,6 +6,7 @@ import {
   AssignmentTreeItem,
   ContentModule,
   ContentModuleItem,
+  ContentNode,
   CourseTreeItem,
 } from './types';
 
@@ -70,8 +71,8 @@ async function fetchAssignmentsByCourse(
 
 async function fetchContentByCourse(
   courses: CourseTreeItem[],
-): Promise<Map<number, ContentModule[]>> {
-  const contentByCourse = new Map<number, ContentModule[]>();
+): Promise<Map<number, ContentNode[]>> {
+  const contentByCourse = new Map<number, ContentNode[]>();
 
   await Promise.all(
     courses.map(async (course) => {
@@ -79,7 +80,7 @@ async function fetchContentByCourse(
         const content = (await window.electron.ipcRenderer.invoke(
           'get-content',
           course.org_unit_id,
-        )) as ContentModule[];
+        )) as ContentNode[];
         contentByCourse.set(course.org_unit_id, content);
       } catch {
         contentByCourse.set(course.org_unit_id, []);
@@ -126,7 +127,7 @@ function buildSemesterMap(
 function buildTreeData(
   courses: CourseTreeItem[],
   assignmentsByCourse: Map<number, AssignmentTreeItem[]>,
-  contentByCourse: Map<number, ContentModule[]>,
+  contentByCourse: Map<number, ContentNode[]>,
 ): TreeData {
   const sortedSemesters = sortSemesters(
     Array.from(buildSemesterMap(courses).values()),
@@ -136,6 +137,33 @@ function buildTreeData(
   const courseByItemId = new Map<string, CourseTreeItem>();
   const contentModuleByItemId = new Map<string, ContentModule>();
   const contentItemByItemId = new Map<string, ContentModuleItem>();
+
+  const buildContentTree = (
+    contentNodes: ContentNode[],
+    parentId: string,
+  ): TreeViewBaseItem[] => {
+    return contentNodes.map((node, index) => {
+      const nodeId = `${parentId}-content-${node.Id}-${index}`;
+
+      if (node.kind === 'file') {
+        contentItemByItemId.set(nodeId, node);
+        return {
+          id: nodeId,
+          label: node.Title,
+        };
+      }
+
+      contentModuleByItemId.set(nodeId, node);
+
+      const children = buildContentTree(node.Children, nodeId);
+
+      return {
+        id: nodeId,
+        label: node.Title,
+        children: children.length > 0 ? children : undefined,
+      };
+    });
+  };
 
   const semesterItems: TreeViewBaseItem[] = sortedSemesters.map((entry) => {
     const sortedCourses = [...entry.courses].sort((a, b) =>
@@ -163,29 +191,17 @@ function buildTreeData(
           };
         });
 
-        const contentModules = contentByCourse.get(course.org_unit_id) ?? [];
-        const contentChildren: TreeViewBaseItem[] = contentModules.map(
-          (module) => {
-            const moduleId = `${courseId}-content-module-${module.Id}`;
-            contentModuleByItemId.set(moduleId, module);
+        const contentNodes = contentByCourse.get(course.org_unit_id) ?? [];
+        const contentFolderId = `${courseId}-content-folder`;
+        const contentFolderNode: ContentModule = {
+          kind: 'folder',
+          Id: -course.org_unit_id,
+          Title: 'Content',
+          Children: contentNodes,
+        };
+        contentModuleByItemId.set(contentFolderId, contentFolderNode);
 
-            const items = (module.Structure ?? []).map((item, index) => {
-              const itemId = `${moduleId}-item-${index}`;
-              contentItemByItemId.set(itemId, item);
-
-              return {
-                id: itemId,
-                label: item.Title,
-              };
-            });
-
-            return {
-              id: moduleId,
-              label: module.Title,
-              children: items.length > 0 ? items : undefined,
-            };
-          },
-        );
+        const contentChildren = buildContentTree(contentNodes, contentFolderId);
 
         const courseChildren: TreeViewBaseItem[] = [
           {
@@ -197,7 +213,7 @@ function buildTreeData(
 
         if (contentChildren.length > 0) {
           courseChildren.push({
-            id: `${courseId}-content-folder`,
+            id: contentFolderId,
             label: 'Content',
             children: contentChildren,
           });
@@ -345,6 +361,8 @@ export default function FileTree({
     if (!selectedItemId) {
       onSelectCourse(null);
       onSelectAssignment(null);
+      onSelectContentModule(null);
+      onSelectContentItem(null);
       return;
     }
 

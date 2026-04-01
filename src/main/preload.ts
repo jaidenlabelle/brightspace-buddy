@@ -7,7 +7,8 @@ export type Channels = 'ipc-example'
   | 'login-successful'
   | 'login-cancelled'
   | 'logout-requested'
-  | 'logout-successful';
+  | 'logout-successful'
+  | 'download-content-item';
 
 export type IpcInvokeChannels =
   | 'get-auth-status'

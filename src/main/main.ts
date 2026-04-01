@@ -17,7 +17,6 @@ import { resolveHtmlPath } from './util';
 import openLoginWindow from './brightspace/login';
 import { fetchCourses } from './brightspace/course';
 import { fetchAssignments } from './brightspace/assignment';
-import { fetchContent } from './brightspace/content';
 import { testAI } from './ai';
 
 class AppUpdater {
@@ -74,7 +73,21 @@ ipcMain.handle('get-content', async (_event, courseOrgUnitId: number) => {
     return [];
   }
 
+  const { fetchContent } = require('./brightspace/content');
   return fetchContent(courseOrgUnitId);
+});
+
+ipcMain.on('download-content-item', (_event, url: string) => {
+  if (!url) {
+    return;
+  }
+
+  if (mainWindow) {
+    mainWindow.webContents.downloadURL(url);
+    return;
+  }
+
+  session.defaultSession.downloadURL(url);
 });
 
 ipcMain.on('logout-requested', async (event) => {

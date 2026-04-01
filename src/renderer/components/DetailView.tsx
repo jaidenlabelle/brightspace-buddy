@@ -1,8 +1,10 @@
-import { Chip, Divider, Link, Paper, Stack, Typography } from '@mui/material';
+import { type ReactElement } from 'react';
+import { Button, Chip, Divider, Paper, Stack, Typography } from '@mui/material';
 import {
   AssignmentTreeItem,
   ContentModule,
   ContentModuleItem,
+  ContentNode,
   CourseTreeItem,
   EntityDropboxStatus,
 } from './types';
@@ -62,14 +64,82 @@ export default function DetailView({
       })()
     : null;
 
-  const contentItems = contentModule?.Structure ?? [];
-
   const contentItemDetails = contentItem
     ? {
         title: contentItem.Title,
         url: contentItem.Url,
       }
     : null;
+
+  const renderDownloadButton = (url: string, label = 'Download file') => (
+    <Button
+      variant="contained"
+      color="primary"
+      disabled={!url}
+      sx={{ alignSelf: 'flex-start' }}
+      onClick={() => {
+        if (!url) {
+          return;
+        }
+
+        window.electron.ipcRenderer.sendMessage('download-content-item', url);
+      }}
+    >
+      {url ? label : 'Download unavailable'}
+    </Button>
+  );
+
+  const renderContentNodes = (
+    nodes: ContentNode[],
+    depth = 0,
+  ): ReactElement[] => {
+    return nodes.map((node) => {
+      const indent = `${depth * 16}px`;
+
+      if (node.kind === 'file') {
+        return (
+          <Paper
+            key={`${node.kind}-${node.Id}`}
+            variant="outlined"
+            sx={{ p: 1.25, bgcolor: 'background.default', ml: indent }}
+          >
+            <Stack spacing={0.75}>
+              <Typography variant="subtitle1" fontWeight={600}>
+                {node.Title}
+              </Typography>
+              {renderDownloadButton(node.Url)}
+            </Stack>
+          </Paper>
+        );
+      }
+
+      return (
+        <Paper
+          key={`${node.kind}-${node.Id}`}
+          variant="outlined"
+          sx={{ p: 1.25, bgcolor: 'background.default', ml: indent }}
+        >
+          <Stack spacing={0.75}>
+            <Typography variant="subtitle1" fontWeight={600}>
+              {node.Title}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {node.Children.length} item{node.Children.length === 1 ? '' : 's'}
+            </Typography>
+            {node.Children.length > 0 ? (
+              <Stack spacing={1}>
+                {renderContentNodes(node.Children, depth + 1)}
+              </Stack>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                No items found in this section.
+              </Typography>
+            )}
+          </Stack>
+        </Paper>
+      );
+    });
+  };
 
   let detailContent = (
     <Typography variant="body1" color="text.secondary">
@@ -109,12 +179,7 @@ export default function DetailView({
           {contentItemDetails.title}
         </Typography>
         <Divider />
-        <Typography variant="body1">
-          URL:{' '}
-          <Link href={contentItemDetails.url} target="_blank" rel="noreferrer">
-            Open content item
-          </Link>
-        </Typography>
+        {renderDownloadButton(contentItemDetails.url)}
       </Stack>
     );
   } else if (contentModule) {
@@ -124,25 +189,12 @@ export default function DetailView({
           {contentModule.Title}
         </Typography>
         <Divider />
-        <Typography variant="body1">Items: {contentItems.length}</Typography>
-        {contentItems.length > 0 ? (
+        <Typography variant="body1">
+          Items: {contentModule.Children.length}
+        </Typography>
+        {contentModule.Children.length > 0 ? (
           <Stack spacing={1}>
-            {contentItems.map((item) => (
-              <Paper
-                key={item.Id}
-                variant="outlined"
-                sx={{ p: 1.25, bgcolor: 'background.default' }}
-              >
-                <Stack spacing={0.5}>
-                  <Typography variant="subtitle1" fontWeight={600}>
-                    {item.Title}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {item.Url}
-                  </Typography>
-                </Stack>
-              </Paper>
-            ))}
+            {renderContentNodes(contentModule.Children)}
           </Stack>
         ) : (
           <Typography variant="body1" color="text.secondary">
