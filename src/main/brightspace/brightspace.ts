@@ -41,7 +41,7 @@ export async function fetchAllPages<T>(route: Route): Promise<T[]> {
  * @throws An error if the required session cookies are not found or if the fetch request fails.
  */
 export default async function request(route: Route, init?: RequestInit): Promise<any> {
-  console.log(`Making request to ${route.url} with method ${route.method}`);
+  //console.log(`Making request to ${route.url} with method ${route.method}`);
 
   const { d2lSecureSessionVal, d2lSessionVal } = await getBrightspaceSessionCookies();
 

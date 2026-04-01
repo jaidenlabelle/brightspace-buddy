@@ -2,7 +2,7 @@ import { SyntheticEvent, useEffect, useState } from 'react';
 import { TreeViewBaseItem } from '@mui/x-tree-view';
 import { RichTreeView } from '@mui/x-tree-view/RichTreeView';
 import { Alert, Box, CircularProgress, Typography } from '@mui/material';
-import { AssignmentTreeItem, CourseTreeItem } from './types';
+import { AssignmentTreeItem, CourseTreeItem, ContentModule } from './types';
 
 interface FileTreeProps {
   onSelectCourse: (course: CourseTreeItem | null) => void;
@@ -59,6 +59,28 @@ async function fetchAssignmentsByCourse(
   return assignmentsByCourse;
 }
 
+async function fetchContentByCourse(
+  courses: CourseTreeItem[],
+): Promise<Map<number, ContentModule[]>> {
+  const contentByCourse = new Map<number, ContentModule[]>();
+
+  await Promise.all(
+    courses.map(async (course) => {
+      try {
+        const content = (await window.electron.ipcRenderer.invoke(
+          'get-content',
+          course.org_unit_id,
+        )) as ContentModule[];
+        contentByCourse.set(course.org_unit_id, content);
+      } catch {
+        contentByCourse.set(course.org_unit_id, []);
+      }
+    }),
+  );
+
+  return contentByCourse;
+}
+
 function sortSemesters(entries: SemesterEntry[]): SemesterEntry[] {
   return entries.sort((a, b) => {
     if (a.semester.year !== b.semester.year) {
@@ -95,6 +117,7 @@ function buildSemesterMap(
 function buildTreeData(
   courses: CourseTreeItem[],
   assignmentsByCourse: Map<number, AssignmentTreeItem[]>,
+  contentByCourse: Map<number, ContentModule[]>,
 ): TreeData {
   const sortedSemesters = sortSemesters(
     Array.from(buildSemesterMap(courses).values()),
@@ -129,18 +152,45 @@ function buildTreeData(
           };
         });
 
+        const contentModules = contentByCourse.get(course.org_unit_id) ?? [];
+        const contentChildren: TreeViewBaseItem[] = contentModules.map(
+          (module) => {
+            const moduleId = `${courseId}-content-module-${module.Id}`;
+            const items = (module.Structure ?? []).map((item, index) => ({
+              id: `${moduleId}-item-${index}`,
+              label: item.Title,
+            }));
+
+            return {
+              id: moduleId,
+              label: module.Title,
+              children: items.length > 0 ? items : undefined,
+            };
+          },
+        );
+
+        const courseChildren: TreeViewBaseItem[] = [
+          {
+            id: `${courseId}-assignments-folder`,
+            label: 'Assignments',
+            children: assignmentChildren,
+          },
+        ];
+
+        if (contentChildren.length > 0) {
+          courseChildren.push({
+            id: `${courseId}-content-folder`,
+            label: 'Content',
+            children: contentChildren,
+          });
+        }
+
         return {
           id: courseId,
           label: course.section_number
             ? `${course.name} (${course.section_number})`
             : course.name,
-          children: [
-            {
-              id: `${courseId}-assignments-folder`,
-              label: 'Assignments',
-              children: assignmentChildren,
-            },
-          ],
+          children: courseChildren,
         };
       }),
     };
@@ -191,12 +241,17 @@ export default function FileTree({
         }
 
         const assignmentsByCourse = await fetchAssignmentsByCourse(courses);
+        const contentByCourse = await fetchContentByCourse(courses);
 
         if (cancelled) {
           return;
         }
 
-        const treeData = buildTreeData(courses, assignmentsByCourse);
+        const treeData = buildTreeData(
+          courses,
+          assignmentsByCourse,
+          contentByCourse,
+        );
 
         setItems(treeData.items);
         setCourseByItemId(treeData.courseByItemId);

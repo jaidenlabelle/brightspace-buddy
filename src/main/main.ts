@@ -17,6 +17,7 @@ import { resolveHtmlPath } from './util';
 import openLoginWindow from './brightspace/login';
 import { fetchCourses } from './brightspace/course';
 import { fetchAssignments } from './brightspace/assignment';
+import { fetchContent } from './brightspace/content';
 import { testAI } from './ai';
 
 class AppUpdater {
@@ -66,6 +67,14 @@ ipcMain.handle('get-assignments', async (_event, courseOrgUnitId: number) => {
   }
 
   return fetchAssignments(courseOrgUnitId);
+});
+
+ipcMain.handle('get-content', async (_event, courseOrgUnitId: number) => {
+  if (!isAuthenticated) {
+    return [];
+  }
+
+  return fetchContent(courseOrgUnitId);
 });
 
 ipcMain.on('logout-requested', async (event) => {
@@ -179,8 +188,7 @@ app
   .then(() => {
     session.defaultSession.setUserAgent(
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0',
-    );
-    testAI();
+    )
     createWindow();
     app.on('activate', () => {
       // On macOS it's common to re-create a window in the app when the

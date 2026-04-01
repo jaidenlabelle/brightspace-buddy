@@ -44,3 +44,14 @@ export interface AssignmentTreeItem {
   } | null;
   status: EntityDropboxStatus;
 }
+
+export interface ContentModuleItem {
+  Id: number;
+  Title: string;
+}
+
+export interface ContentModule {
+  Id: number;
+  Title: string;
+  Structure: ContentModuleItem[];
+}

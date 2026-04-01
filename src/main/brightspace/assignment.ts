@@ -104,10 +104,12 @@ async function assignmentFromDropboxFolder(courseOrgUnitId: number, folder: Drop
   try {
     const submissions = await fetchAssignmentSubmissions(courseOrgUnitId, folder.Id);
     status = submissions[0]?.Status;
-    console.log(`Fetched submissions for folder ${folder.Id}, status: ${status}`, submissions);
+    //console.log(`Fetched submissions for folder ${folder.Id}, status: ${status}`, submissions);
   } catch {
     status = null;
   }
+
+  //console.log(folder);
 
 
   return {

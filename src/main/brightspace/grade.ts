@@ -73,9 +73,9 @@ export async function fetchGrades(courseOrgUnitId: number): Promise<Grade[]> {
         : [];
 
   return gradeValues.map((gradeValue: GradeValue) => {
-    console.debug("Processing grade value:", gradeValue);
+    //console.debug("Processing grade value:", gradeValue);
     const grade = gradeFromGradeValue(gradeValue);
-    console.debug("Converted grade:", grade);
+    //console.debug("Converted grade:", grade);
     return grade;
   });
 }
@@ -83,7 +83,7 @@ export async function fetchGrades(courseOrgUnitId: number): Promise<Grade[]> {
 export async function fetchGrade(courseOrgUnitId: number, gradeObjectIdentifier: string): Promise<Grade | null> {
   const response = await request(new Route("GET", `/d2l/api/le/1.58/${courseOrgUnitId}/grades/${gradeObjectIdentifier}/values/myGradeValue`));
 
-  console.log("Single Grade API response:", response);
+  //console.log("Single Grade API response:", response);
 
   if (!response || typeof response !== 'object') {
     console.warn("Unexpected API response format for single grade:", response);

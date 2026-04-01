@@ -154,9 +154,9 @@ export async function fetchCourses(): Promise<Course[]> {
         }
 
         const course = courseFromOrgUnitInfo(item);
-        console.log(`- ${course.full_name} (ID: ${course.org_unit_id})`);
+        //console.log(`- ${course.full_name} (ID: ${course.org_unit_id})`);
 
-        console.log(course);
+        //console.log(course);
         courses.push(course);
       } catch (error) {
         console.error(`Failed to parse course from org unit info`, item.OrgUnit, error);
