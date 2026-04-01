@@ -90,12 +90,16 @@ export async function fetchAssignments(courseOrgUnitId: number): Promise<Assignm
   const response = await request(new Route("GET", `/d2l/api/le/1.58/${courseOrgUnitId}/dropbox/folders/`));
 
   console.log("Assignments API response:", response);
+  const folders = Array.isArray(response)
+    ? response
+    : Array.isArray(response?.Objects)
+      ? response.Objects
+      : Array.isArray(response?.Items)
+        ? response.Items
+        : [];
 
-  for (const folder of response) {
+  return folders.map((folder: DropboxFolder) => {
     console.log("Processing folder:", folder);
-
-    const assignment = assignmentFromDropboxFolder(folder);
-    console.log("Parsed assignment:", assignment);
-  }
-  return [];
+    return assignmentFromDropboxFolder(folder);
+  });
 }

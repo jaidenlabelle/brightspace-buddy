@@ -8,10 +8,14 @@ import {
 } from '@mui/material';
 import styles from '../styles/HomePage.module.scss';
 import UserProfile from './UserProfile';
-import FileTree from './FileTree';
+import DetailView from './DetailView';
+import FileTree, { CourseTreeItem } from './FileTree';
 
 export default function Home({ onLogout }: { onLogout: () => void }) {
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState<CourseTreeItem | null>(
+    null,
+  );
 
   const handleLogoutDialogOpen = () => {
     setLogoutDialogOpen(true);
@@ -45,14 +49,10 @@ export default function Home({ onLogout }: { onLogout: () => void }) {
       <div className={styles.masterDetail}>
         <div className={styles.master}>
           <h2>Explorer</h2>
-          <FileTree />
+          <FileTree onSelectCourse={setSelectedCourse} />
         </div>
         <div className={styles.detail}>
-          <h2>Welcome to Brightspace Buddy!</h2>
-          <p>
-            This is your dashboard where you can access all your course
-            materials and assignments in one place.
-          </p>
+          <DetailView course={selectedCourse} />
         </div>
       </div>
     </div>

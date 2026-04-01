@@ -1,16 +1,28 @@
-import { useEffect, useState } from 'react';
+import { SyntheticEvent, useEffect, useState } from 'react';
 import { TreeViewBaseItem } from '@mui/x-tree-view';
 import { RichTreeView } from '@mui/x-tree-view/RichTreeView';
 
-interface CourseTreeItem {
+export interface CourseTreeItem {
+  full_code: string;
+  full_name: string;
   org_unit_id: number;
   name: string;
   section_number: string | null;
+  ends_at: string | Date;
   is_active: boolean;
   semester: {
     year: number;
     term: 'Winter' | 'Spring' | 'Fall';
   };
+}
+
+interface AssignmentTreeItem {
+  name: string;
+  due_at: string | Date | null;
+}
+
+interface FileTreeProps {
+  onSelectCourse: (course: CourseTreeItem | null) => void;
 }
 
 const TERM_SORT_ORDER: Record<CourseTreeItem['semester']['term'], number> = {
@@ -27,8 +39,11 @@ function semesterLabel(semester: CourseTreeItem['semester']): string {
   return `${semester.year} ${semester.term}`;
 }
 
-export default function FileTree() {
+export default function FileTree({ onSelectCourse }: FileTreeProps) {
   const [items, setItems] = useState<TreeViewBaseItem[]>([]);
+  const [courseByItemId, setCourseByItemId] = useState<
+    Map<string, CourseTreeItem>
+  >(new Map());
   const [defaultExpandedItems, setDefaultExpandedItems] = useState<string[]>(
     [],
   );
@@ -46,6 +61,25 @@ export default function FileTree() {
         const courses = (await window.electron.ipcRenderer.invoke(
           'get-courses',
         )) as CourseTreeItem[];
+
+        if (cancelled) {
+          return;
+        }
+
+        const assignmentsByCourse = new Map<number, AssignmentTreeItem[]>();
+        await Promise.all(
+          courses.map(async (course) => {
+            try {
+              const assignments = (await window.electron.ipcRenderer.invoke(
+                'get-assignments',
+                course.org_unit_id,
+              )) as AssignmentTreeItem[];
+              assignmentsByCourse.set(course.org_unit_id, assignments);
+            } catch {
+              assignmentsByCourse.set(course.org_unit_id, []);
+            }
+          }),
+        );
 
         if (cancelled) {
           return;
@@ -108,12 +142,34 @@ export default function FileTree() {
                 label: course.section_number
                   ? `${course.name} (${course.section_number})`
                   : course.name,
+                children: [
+                  {
+                    id: `course-${course.org_unit_id}-assignments-folder`,
+                    label: 'Assignments',
+                    children: (
+                      assignmentsByCourse.get(course.org_unit_id) ?? []
+                    ).map((assignment, index) => ({
+                      id: `course-${course.org_unit_id}-assignment-${index}`,
+                      label: assignment.due_at
+                        ? `${assignment.name} (Due ${new Date(
+                            assignment.due_at,
+                          ).toLocaleDateString()})`
+                        : assignment.name,
+                    })),
+                  },
+                ],
               })),
             };
           },
         );
 
+        const itemCourseMap = new Map<string, CourseTreeItem>();
+        courses.forEach((course) => {
+          itemCourseMap.set(`course-${course.org_unit_id}`, course);
+        });
+
         setItems(groupedItems);
+        setCourseByItemId(itemCourseMap);
         setDefaultExpandedItems(
           sortedSemesters
             .filter((entry) => entry.hasActiveCourse)
@@ -153,7 +209,25 @@ export default function FileTree() {
     return <p>No courses found.</p>;
   }
 
+  const handleSelectionChange = (
+    _event: SyntheticEvent | null,
+    itemIds: string | null,
+  ) => {
+    const selectedItemId = Array.isArray(itemIds) ? itemIds[0] : itemIds;
+
+    if (!selectedItemId || !selectedItemId.startsWith('course-')) {
+      onSelectCourse(null);
+      return;
+    }
+
+    onSelectCourse(courseByItemId.get(selectedItemId) ?? null);
+  };
+
   return (
-    <RichTreeView items={items} defaultExpandedItems={defaultExpandedItems} />
+    <RichTreeView
+      items={items}
+      defaultExpandedItems={defaultExpandedItems}
+      onSelectedItemsChange={handleSelectionChange}
+    />
   );
 }
