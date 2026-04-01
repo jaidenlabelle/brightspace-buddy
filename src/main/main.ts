@@ -48,10 +48,6 @@ ipcMain.on('open-login-window', (event) => {
 });
 
 ipcMain.handle('get-auth-status', async () => {
-  fetchAssignments(123).catch((error) => {
-    console.error('Error fetching assignments after login:', error);
-  });
-
   return isAuthenticated;
 });
 
