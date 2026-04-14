@@ -1,6 +1,6 @@
-import request from "./brightspace";
-import { Fraction } from "./fraction";
-import Route from "./route";
+import request from './brightspace';
+import { Fraction } from './fraction';
+import Route from './route';
 
 export interface GradeValue {
   DisplayedGrade: string;
@@ -40,13 +40,19 @@ export interface Grade {
 }
 
 function gradeFromGradeValue(gradeValue: GradeValue): Grade {
-  const points = (gradeValue.PointsNumerator !== null && gradeValue.PointsDenominator !== null)
-    ? new Fraction(gradeValue.PointsNumerator, gradeValue.PointsDenominator)
-    : null;
+  const points =
+    gradeValue.PointsNumerator !== null && gradeValue.PointsDenominator !== null
+      ? new Fraction(gradeValue.PointsNumerator, gradeValue.PointsDenominator)
+      : null;
 
-  const weight = (gradeValue.WeightedNumerator !== null && gradeValue.WeightedDenominator !== null)
-    ? new Fraction(gradeValue.WeightedNumerator, gradeValue.WeightedDenominator)
-    : null;
+  const weight =
+    gradeValue.WeightedNumerator !== null &&
+    gradeValue.WeightedDenominator !== null
+      ? new Fraction(
+          gradeValue.WeightedNumerator,
+          gradeValue.WeightedDenominator,
+        )
+      : null;
 
   // Convert HTML comments to plain text
   const comments = htmlToText(gradeValue.Comments.Html);
@@ -61,11 +67,17 @@ function gradeFromGradeValue(gradeValue: GradeValue): Grade {
 }
 
 export async function fetchGrades(courseOrgUnitId: number): Promise<Grade[]> {
-  const response = await request(new Route("GET", `/d2l/api/le/1.58/${courseOrgUnitId}/grades/values/myGradeValues/`));
+  const response = await request(
+    new Route(
+      'GET',
+      `/d2l/api/le/1.58/${courseOrgUnitId}/grades/values/myGradeValues/`,
+    ),
+  );
 
-  console.log("Grades API response:", response);
+  console.log('Grades API response:', response);
 
-  const gradeValues = Array.isArray(response)    ? response
+  const gradeValues = Array.isArray(response)
+    ? response
     : Array.isArray(response?.Objects)
       ? response.Objects
       : Array.isArray(response?.Items)
@@ -80,13 +92,21 @@ export async function fetchGrades(courseOrgUnitId: number): Promise<Grade[]> {
   });
 }
 
-export async function fetchGrade(courseOrgUnitId: number, gradeObjectIdentifier: string): Promise<Grade | null> {
-  const response = await request(new Route("GET", `/d2l/api/le/1.58/${courseOrgUnitId}/grades/${gradeObjectIdentifier}/values/myGradeValue`));
+export async function fetchGrade(
+  courseOrgUnitId: number,
+  gradeObjectIdentifier: string,
+): Promise<Grade | null> {
+  const response = await request(
+    new Route(
+      'GET',
+      `/d2l/api/le/1.58/${courseOrgUnitId}/grades/${gradeObjectIdentifier}/values/myGradeValue`,
+    ),
+  );
 
   //console.log("Single Grade API response:", response);
 
   if (!response || typeof response !== 'object') {
-    console.warn("Unexpected API response format for single grade:", response);
+    console.warn('Unexpected API response format for single grade:', response);
     return null;
   }
 
@@ -98,7 +118,7 @@ export async function fetchGrade(courseOrgUnitId: number, gradeObjectIdentifier:
  * @param html The HTML string to convert to plain text.
  * @returns A plain text representation of the input HTML string.
  */
-function htmlToText(html: string): string {
+export function htmlToText(html: string): string {
   return html
     .replace(/<[^>]*>/g, '') // Remove HTML tags
     .replace(/&nbsp;/g, ' ') // Replace non-breaking spaces
@@ -107,4 +127,3 @@ function htmlToText(html: string): string {
     .replace(/&amp;/g, '&')
     .trim();
 }
-

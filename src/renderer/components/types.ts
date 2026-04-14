@@ -12,7 +12,6 @@ export enum EntityDropboxStatus {
   Published = 3,
 }
 
-
 export interface CourseTreeItem {
   full_code: string;
   full_name: string;
@@ -26,6 +25,7 @@ export interface CourseTreeItem {
 
 export interface AssignmentTreeItem {
   name: string;
+  description: string | null;
   starts_at: string | Date | null;
   ends_at: string | Date | null;
   due_at: string | Date | null;
@@ -42,6 +42,16 @@ export interface AssignmentTreeItem {
     } | null;
     comments: string;
   } | null;
+  fileAttachments: Array<{
+    FileId: number;
+    FileName: string;
+    Size: number;
+  }>;
+  linkAttachments: Array<{
+    LinkId: number;
+    LinkName: string;
+    Href: string;
+  }>;
   status: EntityDropboxStatus;
 }
 

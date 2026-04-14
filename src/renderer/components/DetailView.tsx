@@ -400,6 +400,97 @@ export default function DetailView({
             ) : null}
           </Stack>
         </Paper>
+
+        {assignment.description ? (
+          <Paper
+            variant="outlined"
+            sx={{ p: 1.5, bgcolor: 'background.default' }}
+          >
+            <Stack spacing={1}>
+              <Typography variant="subtitle1" fontWeight={700}>
+                Description
+              </Typography>
+              <Divider />
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                {assignment.description}
+              </Typography>
+            </Stack>
+          </Paper>
+        ) : null}
+
+        {assignment.fileAttachments && assignment.fileAttachments.length > 0 ? (
+          <Paper
+            variant="outlined"
+            sx={{ p: 1.5, bgcolor: 'background.default' }}
+          >
+            <Stack spacing={1}>
+              <Typography variant="subtitle1" fontWeight={700}>
+                File Attachments
+              </Typography>
+              <Divider />
+              <Stack spacing={1}>
+                {assignment.fileAttachments.map((file) => (
+                  <Paper
+                    key={file.FileId}
+                    variant="outlined"
+                    sx={{ p: 1.25, bgcolor: 'background.paper' }}
+                  >
+                    <Stack spacing={0.5}>
+                      <Typography variant="body2" fontWeight={600}>
+                        {file.FileName}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {(file.Size / 1024).toFixed(2)} KB
+                      </Typography>
+                    </Stack>
+                  </Paper>
+                ))}
+              </Stack>
+            </Stack>
+          </Paper>
+        ) : null}
+
+        {assignment.linkAttachments && assignment.linkAttachments.length > 0 ? (
+          <Paper
+            variant="outlined"
+            sx={{ p: 1.5, bgcolor: 'background.default' }}
+          >
+            <Stack spacing={1}>
+              <Typography variant="subtitle1" fontWeight={700}>
+                Link Attachments
+              </Typography>
+              <Divider />
+              <Stack spacing={1}>
+                {assignment.linkAttachments.map((link) => (
+                  <Paper
+                    key={link.LinkId}
+                    variant="outlined"
+                    sx={{ p: 1.25, bgcolor: 'background.paper' }}
+                  >
+                    <Stack spacing={0.5}>
+                      <Button
+                        component="a"
+                        href={link.Href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        sx={{ textAlign: 'left', justifyContent: 'flex-start' }}
+                      >
+                        {link.LinkName}
+                      </Button>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ ml: 1 }}
+                      >
+                        {link.Href}
+                      </Typography>
+                    </Stack>
+                  </Paper>
+                ))}
+              </Stack>
+            </Stack>
+          </Paper>
+        ) : null}
       </Stack>
     );
   } else if (contentItemDetails) {
