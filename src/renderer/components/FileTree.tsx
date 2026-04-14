@@ -16,6 +16,7 @@ interface FileTreeProps {
   onSelectContentModule: (contentModule: ContentModule | null) => void;
   onSelectContentItem: (contentItem: ContentModuleItem | null) => void;
   onSelectDashboard: () => void;
+  onSelectGpaCalculator: () => void;
 }
 
 interface SemesterEntry {
@@ -203,8 +204,9 @@ function buildTreeData(
         courseByItemId.set(courseId, course);
 
         const contentFolderId = `${courseId}-content-folder`;
-        const assignmentState = assignmentsByCourse.get(course.org_unit_id);
-        const contentState = contentByCourse.get(course.org_unit_id);
+        const assignmentState =
+          assignmentsByCourse.get(course.org_unit_id) ?? null;
+        const contentState = contentByCourse.get(course.org_unit_id) ?? null;
 
         contentModuleByItemId.set(contentFolderId, {
           kind: 'folder',
@@ -230,32 +232,34 @@ function buildTreeData(
           hasPendingSections = true;
         }
 
-        const courseChildren: TreeViewBaseItem[] = [
-          {
-            id: `${courseId}-assignments-folder`,
-            label: 'Assignments',
-            children: assignmentChildren,
-          },
-          {
-            id: contentFolderId,
-            label: 'Content',
-            children: contentChildren,
-          },
-        ];
-
         return {
           id: courseId,
           label: course.section_number
             ? `${course.name} (${course.section_number})`
             : course.name,
-          children: courseChildren,
+          children: [
+            {
+              id: `${courseId}-assignments-folder`,
+              label: 'Assignments',
+              children: assignmentChildren,
+            },
+            {
+              id: contentFolderId,
+              label: 'Content',
+              children: contentChildren,
+            },
+          ],
         };
       }),
     };
   });
 
   return {
-    items: [{ id: 'dashboard', label: 'Dashboard' }, ...semesterItems],
+    items: [
+      { id: 'dashboard', label: 'Dashboard' },
+      { id: 'gpa-calculator', label: 'GPA Calculator' },
+      ...semesterItems,
+    ],
     courseByItemId,
     assignmentByItemId,
     contentModuleByItemId,
@@ -273,6 +277,7 @@ export default function FileTree({
   onSelectContentModule,
   onSelectContentItem,
   onSelectDashboard,
+  onSelectGpaCalculator,
 }: FileTreeProps) {
   const [courses, setCourses] = useState<CourseTreeItem[]>([]);
   const [assignmentsByCourse, setAssignmentsByCourse] = useState<
@@ -442,6 +447,11 @@ export default function FileTree({
 
     if (selectedItemId === 'dashboard') {
       onSelectDashboard();
+      return;
+    }
+
+    if (selectedItemId === 'gpa-calculator') {
+      onSelectGpaCalculator();
       return;
     }
 

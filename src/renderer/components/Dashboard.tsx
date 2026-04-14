@@ -71,17 +71,18 @@ function getDaysUntilDue(dueAt: string | Date | null): number | null {
 }
 
 function percentageToGpa(percent: number): number {
-  if (percent >= 93) return 4.0;
-  if (percent >= 90) return 3.7;
-  if (percent >= 87) return 3.3;
-  if (percent >= 83) return 3.0;
-  if (percent >= 80) return 2.7;
-  if (percent >= 77) return 2.3;
-  if (percent >= 73) return 2.0;
-  if (percent >= 70) return 1.7;
-  if (percent >= 67) return 1.3;
-  if (percent >= 63) return 1.0;
-  if (percent >= 60) return 0.7;
+  if (percent >= 90) return 4.0;
+  if (percent >= 85) return 3.8;
+  if (percent >= 80) return 3.6;
+  if (percent >= 77) return 3.3;
+  if (percent >= 73) return 3.0;
+  if (percent >= 70) return 2.7;
+  if (percent >= 67) return 2.3;
+  if (percent >= 63) return 2.0;
+  if (percent >= 60) return 1.7;
+  if (percent >= 57) return 1.4;
+  if (percent >= 53) return 1.2;
+  if (percent >= 50) return 1.0;
   return 0.0;
 }
 

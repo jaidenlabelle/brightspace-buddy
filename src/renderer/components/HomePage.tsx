@@ -14,6 +14,7 @@ import {
 import UserProfile from './UserProfile';
 import DetailView from './DetailView';
 import Dashboard from './Dashboard';
+import GpaCalculator from './GpaCalculator';
 import FileTree from './FileTree';
 import {
   AssignmentTreeItem,
@@ -24,6 +25,7 @@ import {
 
 type SelectedView =
   | { type: 'dashboard' }
+  | { type: 'gpa-calculator' }
   | { type: 'course'; course: CourseTreeItem }
   | { type: 'assignment'; assignment: AssignmentTreeItem }
   | { type: 'content-module'; contentModule: ContentModule }
@@ -73,6 +75,10 @@ export default function Home({ onLogout }: { onLogout: () => void }) {
 
   const handleSelectDashboard = () => {
     setSelectedView({ type: 'dashboard' });
+  };
+
+  const handleSelectGpaCalculator = () => {
+    setSelectedView({ type: 'gpa-calculator' });
   };
 
   const handleLogoutDialogOpen = () => {
@@ -139,6 +145,7 @@ export default function Home({ onLogout }: { onLogout: () => void }) {
             onSelectContentModule={handleSelectContentModule}
             onSelectContentItem={handleSelectContentItem}
             onSelectDashboard={handleSelectDashboard}
+            onSelectGpaCalculator={handleSelectGpaCalculator}
           />
         </Paper>
         <Paper
@@ -161,7 +168,20 @@ export default function Home({ onLogout }: { onLogout: () => void }) {
           </Box>
           <Box
             sx={{
-              display: selectedView.type === 'dashboard' ? 'none' : 'block',
+              display:
+                selectedView.type === 'gpa-calculator' ? 'block' : 'none',
+              height: '100%',
+            }}
+          >
+            <GpaCalculator />
+          </Box>
+          <Box
+            sx={{
+              display:
+                selectedView.type === 'dashboard' ||
+                selectedView.type === 'gpa-calculator'
+                  ? 'none'
+                  : 'block',
               height: '100%',
             }}
           >
