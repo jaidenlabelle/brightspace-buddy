@@ -24,6 +24,83 @@ function getStatusLabel(status: EntityDropboxStatus): string {
   }
 }
 
+function getStatusColor(
+  status: EntityDropboxStatus,
+): 'error' | 'warning' | 'success' | 'default' {
+  switch (status) {
+    case EntityDropboxStatus.Unsubmitted:
+      return 'error';
+    case EntityDropboxStatus.Draft:
+      return 'warning';
+    case EntityDropboxStatus.Submitted:
+    case EntityDropboxStatus.Published:
+      return 'success';
+    default:
+      return 'default';
+  }
+}
+
+function percentageToLetter(percent: number | null): string {
+  if (percent === null || Number.isNaN(percent)) {
+    return 'N/A';
+  }
+
+  if (percent >= 90) return 'A+';
+  if (percent >= 85) return 'A';
+  if (percent >= 80) return 'A-';
+  if (percent >= 77) return 'B+';
+  if (percent >= 73) return 'B';
+  if (percent >= 70) return 'B-';
+  if (percent >= 67) return 'C+';
+  if (percent >= 63) return 'C';
+  if (percent >= 60) return 'C-';
+  if (percent >= 57) return 'D+';
+  if (percent >= 53) return 'D';
+  if (percent >= 50) return 'D-';
+  return 'F';
+}
+
+function percentageToGpa(percent: number | null): number | null {
+  if (percent === null || Number.isNaN(percent)) {
+    return null;
+  }
+
+  if (percent >= 90) return 4.0;
+  if (percent >= 85) return 3.8;
+  if (percent >= 80) return 3.6;
+  if (percent >= 77) return 3.3;
+  if (percent >= 73) return 3.0;
+  if (percent >= 70) return 2.7;
+  if (percent >= 67) return 2.3;
+  if (percent >= 63) return 2.0;
+  if (percent >= 60) return 1.7;
+  if (percent >= 57) return 1.4;
+  if (percent >= 53) return 1.2;
+  if (percent >= 50) return 1.0;
+  return 0.0;
+}
+
+function getDueLabel(dueDate: string | Date | null): string {
+  if (!dueDate) {
+    return 'No due date';
+  }
+
+  const dueMs = new Date(dueDate).getTime();
+  const nowMs = Date.now();
+  const days = Math.ceil((dueMs - nowMs) / (1000 * 60 * 60 * 24));
+
+  if (days < 0) {
+    const overdueDays = Math.abs(days);
+    return `Overdue by ${overdueDays} day${overdueDays === 1 ? '' : 's'}`;
+  }
+
+  if (days === 0) {
+    return 'Due today';
+  }
+
+  return `Due in ${days} day${days === 1 ? '' : 's'}`;
+}
+
 export default function DetailView({
   course,
   assignment,
@@ -50,22 +127,15 @@ export default function DetailView({
     ? new Date(assignment.due_at).toLocaleDateString()
     : null;
   const gradePoints = assignment?.grade?.points;
+  const gradePercent =
+    gradePoints && gradePoints.denominator > 0
+      ? (gradePoints.numerator / gradePoints.denominator) * 100
+      : null;
+  const gradeLetter = percentageToLetter(gradePercent);
+  const gradeGpa = percentageToGpa(gradePercent);
+  const gradeWorth = assignment?.grade?.weight?.denominator ?? null;
   const gradeDisplay = gradePoints
-    ? (() => {
-        const { numerator, denominator } = gradePoints;
-        const fraction = `${numerator}/${denominator}`;
-
-        if (denominator <= 0) {
-          return fraction;
-        }
-
-        const percent = (numerator / denominator) * 100;
-        const formattedPercent = Number.isInteger(percent)
-          ? percent.toString()
-          : percent.toFixed(1);
-
-        return `${fraction} (${formattedPercent}%)`;
-      })()
+    ? `${gradePoints.numerator}/${gradePoints.denominator}`
     : null;
 
   const contentItemDetails = contentItem
@@ -196,27 +266,140 @@ export default function DetailView({
 
   if (assignment) {
     detailContent = (
-      <Stack spacing={1.5}>
-        <Typography variant="h5" fontWeight={700}>
-          {assignment.name}
-        </Typography>
-        <Divider />
-        <Typography variant="body1">
-          Starts At: {startsAt ?? 'No start date available'}
-        </Typography>
-        <Typography variant="body1">
-          Ends At: {assignmentEndsAt ?? 'No end date available'}
-        </Typography>
-        <Typography variant="body1">
-          Due At: {dueAt ?? 'No due date available'}
-        </Typography>
-        <Typography variant="body1">
-          Grade: {gradeDisplay ?? 'No grade available'}
-        </Typography>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Typography variant="body1">Status:</Typography>
-          <Chip label={getStatusLabel(assignment.status)} color="secondary" />
+      <Stack spacing={2}>
+        <Stack spacing={0.75}>
+          <Typography variant="h5" fontWeight={700}>
+            {assignment.name}
+          </Typography>
+          <Stack direction="row" spacing={1} flexWrap="wrap">
+            <Chip
+              label={getStatusLabel(assignment.status)}
+              color={getStatusColor(assignment.status)}
+            />
+            <Chip label={getDueLabel(assignment.due_at)} variant="outlined" />
+          </Stack>
         </Stack>
+
+        <Divider />
+
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25}>
+          <Paper variant="outlined" sx={{ p: 1.25, flex: 1 }}>
+            <Stack spacing={0.25}>
+              <Typography variant="caption" color="text.secondary">
+                Starts
+              </Typography>
+              <Typography variant="body2" fontWeight={600}>
+                {startsAt ?? 'No start date available'}
+              </Typography>
+            </Stack>
+          </Paper>
+          <Paper variant="outlined" sx={{ p: 1.25, flex: 1 }}>
+            <Stack spacing={0.25}>
+              <Typography variant="caption" color="text.secondary">
+                Due
+              </Typography>
+              <Typography variant="body2" fontWeight={600}>
+                {dueAt ?? 'No due date available'}
+              </Typography>
+            </Stack>
+          </Paper>
+          <Paper variant="outlined" sx={{ p: 1.25, flex: 1 }}>
+            <Stack spacing={0.25}>
+              <Typography variant="caption" color="text.secondary">
+                Ends
+              </Typography>
+              <Typography variant="body2" fontWeight={600}>
+                {assignmentEndsAt ?? 'No end date available'}
+              </Typography>
+            </Stack>
+          </Paper>
+        </Stack>
+
+        <Paper
+          variant="outlined"
+          sx={{ p: 1.5, bgcolor: 'background.default' }}
+        >
+          <Stack spacing={1.25}>
+            <Typography variant="subtitle1" fontWeight={700}>
+              Grade details
+            </Typography>
+            <Divider />
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25}>
+              <Paper variant="outlined" sx={{ p: 1.25, flex: 1 }}>
+                <Stack spacing={0.25}>
+                  <Typography variant="caption" color="text.secondary">
+                    Grade item
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {assignment.grade?.name ?? assignment.name}
+                  </Typography>
+                </Stack>
+              </Paper>
+              <Paper variant="outlined" sx={{ p: 1.25, flex: 1 }}>
+                <Stack spacing={0.25}>
+                  <Typography variant="caption" color="text.secondary">
+                    Marks
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {gradeDisplay ?? 'No grade available'}
+                  </Typography>
+                </Stack>
+              </Paper>
+              <Paper variant="outlined" sx={{ p: 1.25, flex: 1 }}>
+                <Stack spacing={0.25}>
+                  <Typography variant="caption" color="text.secondary">
+                    Worth
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {gradeWorth === null ? 'N/A' : `${gradeWorth}%`}
+                  </Typography>
+                </Stack>
+              </Paper>
+            </Stack>
+
+            <Stack direction="row" spacing={1} flexWrap="wrap">
+              <Chip
+                size="small"
+                label={
+                  gradePercent === null
+                    ? 'Percent: N/A'
+                    : `Percent: ${gradePercent.toFixed(1)}%`
+                }
+                variant="outlined"
+              />
+              <Chip
+                size="small"
+                label={`Letter: ${gradeLetter}`}
+                variant="outlined"
+              />
+              <Chip
+                size="small"
+                label={
+                  gradeGpa === null
+                    ? 'AA14 GPA: N/A'
+                    : `AA14 GPA: ${gradeGpa.toFixed(1)}`
+                }
+                variant="outlined"
+              />
+            </Stack>
+
+            {assignment.grade?.comments ? (
+              <Paper
+                variant="outlined"
+                sx={{ p: 1.25, bgcolor: 'background.paper' }}
+              >
+                <Stack spacing={0.5}>
+                  <Typography variant="caption" color="text.secondary">
+                    Feedback
+                  </Typography>
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                    {assignment.grade.comments}
+                  </Typography>
+                </Stack>
+              </Paper>
+            ) : null}
+          </Stack>
+        </Paper>
       </Stack>
     );
   } else if (contentItemDetails) {
