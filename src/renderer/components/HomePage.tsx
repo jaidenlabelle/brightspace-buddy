@@ -151,9 +151,20 @@ export default function Home({ onLogout }: { onLogout: () => void }) {
             minHeight: { md: 'calc(100vh - 120px)' },
           }}
         >
-          {selectedView.type === 'dashboard' ? (
+          <Box
+            sx={{
+              display: selectedView.type === 'dashboard' ? 'block' : 'none',
+              height: '100%',
+            }}
+          >
             <Dashboard />
-          ) : (
+          </Box>
+          <Box
+            sx={{
+              display: selectedView.type === 'dashboard' ? 'none' : 'block',
+              height: '100%',
+            }}
+          >
             <DetailView
               course={
                 selectedView.type === 'course' ? selectedView.course : null
@@ -174,7 +185,7 @@ export default function Home({ onLogout }: { onLogout: () => void }) {
                   : null
               }
             />
-          )}
+          </Box>
         </Paper>
       </Stack>
     </Box>

@@ -25,6 +25,11 @@ interface DashboardData {
   estimatedGpa: number | null;
 }
 
+interface DashboardPayload {
+  courses: CourseTreeItem[];
+  assignmentsByCourse: Record<number, AssignmentTreeItem[]>;
+}
+
 function getCurrentCalendarSemester(date = new Date()): Semester {
   const month = date.getMonth();
 
@@ -110,9 +115,8 @@ function getAssignmentStatusLabel(assignment: DashboardAssignment): string {
 
 function getAssignmentStatusColor(
   assignment: DashboardAssignment,
+  daysUntilDue: number | null,
 ): 'success' | 'warning' | 'error' | 'default' {
-  const daysUntilDue = getDaysUntilDue(assignment.due_at);
-
   if (assignment.status === 1) {
     return 'success';
   }
@@ -128,9 +132,26 @@ function getAssignmentStatusColor(
   return 'default';
 }
 
+function getDueLabel(daysUntilDue: number | null): string {
+  if (daysUntilDue === null) {
+    return 'No due date';
+  }
+
+  if (daysUntilDue < 0) {
+    const overdueDays = Math.abs(daysUntilDue);
+    return `Overdue by ${overdueDays} day${overdueDays === 1 ? '' : 's'}`;
+  }
+
+  if (daysUntilDue === 0) {
+    return 'Due today';
+  }
+
+  return `Due in ${daysUntilDue} day${daysUntilDue === 1 ? '' : 's'}`;
+}
+
 function buildDashboardData(
   courses: CourseTreeItem[],
-  assignmentsByCourse: Map<number, AssignmentTreeItem[]>,
+  assignmentsByCourse: Record<number, AssignmentTreeItem[]>,
 ): DashboardData {
   const semester = getCurrentCalendarSemester();
   const semesterCourses = courses.filter(
@@ -139,53 +160,59 @@ function buildDashboardData(
       course.semester.term === semester.term,
   );
 
-  const dashboardAssignments = semesterCourses.flatMap((course) => {
-    const assignments = assignmentsByCourse.get(course.org_unit_id) ?? [];
-
-    return assignments.map((assignment) => ({
-      ...assignment,
-      courseName: course.name,
-      courseCode: course.full_code,
-    }));
-  });
-
-  const outstandingAssignments = dashboardAssignments
-    .filter(
-      (assignment) =>
-        isIncompleteAssignment(assignment) && !hasGrade(assignment),
-    )
-    .sort((a, b) => {
-      const aDue = a.due_at
-        ? new Date(a.due_at).getTime()
-        : Number.POSITIVE_INFINITY;
-      const bDue = b.due_at
-        ? new Date(b.due_at).getTime()
-        : Number.POSITIVE_INFINITY;
-      return aDue - bDue;
-    });
-
-  const completedAssignments = dashboardAssignments.filter(
-    (assignment) => !isIncompleteAssignment(assignment) || hasGrade(assignment),
-  );
+  const dashboardAssignments: DashboardAssignment[] = [];
+  const outstandingAssignments: DashboardAssignment[] = [];
+  const completedAssignments: DashboardAssignment[] = [];
 
   let weightedPercentTotal = 0;
   let weightTotal = 0;
 
-  for (const assignment of dashboardAssignments) {
-    const { grade } = assignment;
-    const points = grade?.points;
-    if (!points || points.denominator <= 0) {
-      continue;
-    }
+  semesterCourses.forEach((course) => {
+    const assignments = assignmentsByCourse[course.org_unit_id] ?? [];
 
-    const percent = (points.numerator / points.denominator) * 100;
-    const weight = grade?.weight?.denominator
-      ? grade.weight.numerator / grade.weight.denominator
-      : 1;
+    assignments.forEach((assignment) => {
+      const dashboardAssignment = {
+        ...assignment,
+        courseName: course.name,
+        courseCode: course.full_code,
+      };
 
-    weightedPercentTotal += percent * weight;
-    weightTotal += weight;
-  }
+      dashboardAssignments.push(dashboardAssignment);
+
+      if (
+        isIncompleteAssignment(dashboardAssignment) &&
+        !hasGrade(dashboardAssignment)
+      ) {
+        outstandingAssignments.push(dashboardAssignment);
+      } else {
+        completedAssignments.push(dashboardAssignment);
+      }
+
+      const { grade } = dashboardAssignment;
+      const points = grade?.points;
+      if (!points || points.denominator <= 0) {
+        return;
+      }
+
+      const percent = (points.numerator / points.denominator) * 100;
+      const weight = grade?.weight?.denominator
+        ? grade.weight.numerator / grade.weight.denominator
+        : 1;
+
+      weightedPercentTotal += percent * weight;
+      weightTotal += weight;
+    });
+  });
+
+  outstandingAssignments.sort((a, b) => {
+    const aDue = a.due_at
+      ? new Date(a.due_at).getTime()
+      : Number.POSITIVE_INFINITY;
+    const bDue = b.due_at
+      ? new Date(b.due_at).getTime()
+      : Number.POSITIVE_INFINITY;
+    return aDue - bDue;
+  });
 
   const averagePercent =
     weightTotal > 0 ? weightedPercentTotal / weightTotal : null;
@@ -215,25 +242,10 @@ export default function Dashboard() {
         setIsLoading(true);
         setError(null);
 
-        const courses = (await window.electron.ipcRenderer.invoke(
-          'get-courses',
-        )) as CourseTreeItem[];
-
-        const assignmentsByCourse = new Map<number, AssignmentTreeItem[]>();
-
-        await Promise.all(
-          courses.map(async (course) => {
-            try {
-              const assignments = (await window.electron.ipcRenderer.invoke(
-                'get-assignments',
-                course.org_unit_id,
-              )) as AssignmentTreeItem[];
-              assignmentsByCourse.set(course.org_unit_id, assignments);
-            } catch {
-              assignmentsByCourse.set(course.org_unit_id, []);
-            }
-          }),
-        );
+        const dashboardResponse = (await window.electron.ipcRenderer.invoke(
+          'get-dashboard-data',
+        )) as DashboardPayload;
+        const { courses, assignmentsByCourse } = dashboardResponse;
 
         const dashboardData = buildDashboardData(courses, assignmentsByCourse);
 
@@ -387,14 +399,7 @@ export default function Dashboard() {
               <Stack spacing={1.25}>
                 {data.outstandingAssignments.map((assignment) => {
                   const daysUntilDue = getDaysUntilDue(assignment.due_at);
-                  const dueLabel =
-                    daysUntilDue === null
-                      ? 'No due date'
-                      : daysUntilDue < 0
-                        ? `Overdue by ${Math.abs(daysUntilDue)} day${Math.abs(daysUntilDue) === 1 ? '' : 's'}`
-                        : daysUntilDue === 0
-                          ? 'Due today'
-                          : `Due in ${daysUntilDue} day${daysUntilDue === 1 ? '' : 's'}`;
+                  const dueLabel = getDueLabel(daysUntilDue);
 
                   return (
                     <Paper
@@ -427,7 +432,10 @@ export default function Dashboard() {
                           <Chip
                             size="small"
                             label={getAssignmentStatusLabel(assignment)}
-                            color={getAssignmentStatusColor(assignment)}
+                            color={getAssignmentStatusColor(
+                              assignment,
+                              daysUntilDue,
+                            )}
                           />
                           <Typography variant="body2" color="text.secondary">
                             {dueLabel}

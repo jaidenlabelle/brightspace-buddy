@@ -2,7 +2,8 @@
 /* eslint no-unused-vars: off */
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 
-export type Channels = 'ipc-example'
+export type Channels =
+  | 'ipc-example'
   | 'open-login-window'
   | 'login-successful'
   | 'login-cancelled'
@@ -13,6 +14,7 @@ export type Channels = 'ipc-example'
 export type IpcInvokeChannels =
   | 'get-auth-status'
   | 'get-courses'
+  | 'get-dashboard-data'
   | 'get-assignments'
   | 'get-content'
   | 'summarize-content-item';

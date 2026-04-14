@@ -60,6 +60,35 @@ ipcMain.handle('get-courses', async () => {
   return fetchCourses();
 });
 
+ipcMain.handle('get-dashboard-data', async () => {
+  if (!isAuthenticated) {
+    return { courses: [], assignmentsByCourse: {} };
+  }
+
+  const courses = await fetchCourses();
+  const assignmentsByCourse: Record<
+    number,
+    Awaited<ReturnType<typeof fetchAssignments>>
+  > = {};
+
+  await Promise.all(
+    courses.map(async (course) => {
+      try {
+        assignmentsByCourse[course.org_unit_id] = await fetchAssignments(
+          course.org_unit_id,
+        );
+      } catch {
+        assignmentsByCourse[course.org_unit_id] = [];
+      }
+    }),
+  );
+
+  return {
+    courses,
+    assignmentsByCourse,
+  };
+});
+
 ipcMain.handle('get-assignments', async (_event, courseOrgUnitId: number) => {
   if (!isAuthenticated) {
     return [];
@@ -216,7 +245,7 @@ app
   .then(() => {
     session.defaultSession.setUserAgent(
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0',
-    )
+    );
     createWindow();
     app.on('activate', () => {
       // On macOS it's common to re-create a window in the app when the
