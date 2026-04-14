@@ -46,6 +46,7 @@ export interface AssignmentTreeItem {
     FileId: number;
     FileName: string;
     Size: number;
+    Url?: string;
   }>;
   linkAttachments: Array<{
     LinkId: number;

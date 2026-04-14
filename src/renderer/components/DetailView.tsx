@@ -115,6 +115,22 @@ export default function DetailView({
   const [summary, setSummary] = useState<string | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [attachmentSummaries, setAttachmentSummaries] = useState<
+    Record<string, { summary: string; loading: boolean; error: string | null }>
+  >({});
+  const [attachmentDownloads, setAttachmentDownloads] = useState<
+    Record<
+      string,
+      { loading: boolean; error: string | null; path: string | null }
+    >
+  >({});
+  const [assignmentSummary, setAssignmentSummary] = useState<string | null>(
+    null,
+  );
+  const [isSummarizingAssignment, setIsSummarizingAssignment] = useState(false);
+  const [assignmentSummaryError, setAssignmentSummaryError] = useState<
+    string | null
+  >(null);
 
   const endsAt = course ? new Date(course.ends_at).toLocaleDateString() : null;
   const startsAt = assignment?.starts_at
@@ -149,9 +165,18 @@ export default function DetailView({
     setSummary(null);
     setSummaryError(null);
     setIsSummarizing(false);
-  }, [contentItemDetails?.url, contentModule?.Id]);
+    setAttachmentSummaries({});
+    setAttachmentDownloads({});
+    setAssignmentSummary(null);
+    setAssignmentSummaryError(null);
+    setIsSummarizingAssignment(false);
+  }, [contentItemDetails?.url, contentModule?.Id, assignment?.name]);
 
-  const renderDownloadButton = (url: string, label = 'Download file') => (
+  const renderDownloadButton = (
+    url: string,
+    label?: string,
+    fileName?: string,
+  ) => (
     <Button
       variant="contained"
       color="primary"
@@ -162,10 +187,14 @@ export default function DetailView({
           return;
         }
 
-        window.electron.ipcRenderer.sendMessage('download-content-item', url);
+        window.electron.ipcRenderer.sendMessage(
+          'download-content-item',
+          url,
+          fileName || label || 'content-file',
+        );
       }}
     >
-      {url ? label : 'Download unavailable'}
+      {url ? label || 'Download file' : 'Download unavailable'}
     </Button>
   );
 
@@ -206,6 +235,175 @@ export default function DetailView({
     </Button>
   );
 
+  const handleDownloadAttachment = async (url: string, fileName: string) => {
+    if (!assignment) {
+      return;
+    }
+
+    const downloadKey = fileName;
+    setAttachmentDownloads((prev) => ({
+      ...prev,
+      [downloadKey]: {
+        loading: true,
+        error: null,
+        path: prev[downloadKey]?.path ?? null,
+      },
+    }));
+
+    try {
+      const result = (await window.electron.ipcRenderer.invoke(
+        'download-file-attachment',
+        url,
+        fileName,
+        assignment.name,
+      )) as { success: boolean; path?: string };
+
+      setAttachmentDownloads((prev) => ({
+        ...prev,
+        [downloadKey]: {
+          loading: false,
+          error: null,
+          path: result.path ?? prev[downloadKey]?.path ?? null,
+        },
+      }));
+    } catch (error) {
+      const errorMsg =
+        error instanceof Error
+          ? error.message
+          : 'Failed to download attachment';
+      setAttachmentDownloads((prev) => ({
+        ...prev,
+        [downloadKey]: {
+          loading: false,
+          error: errorMsg,
+          path: prev[downloadKey]?.path ?? null,
+        },
+      }));
+    }
+  };
+
+  const handleSummarizeAttachment = async (url: string, fileName: string) => {
+    if (!assignment) return;
+
+    const summaryKey = fileName;
+    setAttachmentSummaries((prev) => ({
+      ...prev,
+      [summaryKey]: { summary: '', loading: true, error: null },
+    }));
+
+    try {
+      const result = (await window.electron.ipcRenderer.invoke(
+        'summarize-file-attachment',
+        url,
+        fileName,
+        assignment.name,
+      )) as string;
+
+      setAttachmentSummaries((prev) => ({
+        ...prev,
+        [summaryKey]: { summary: result, loading: false, error: null },
+      }));
+    } catch (error) {
+      const errorMsg =
+        error instanceof Error ? error.message : 'Failed to summarize file';
+      setAttachmentSummaries((prev) => ({
+        ...prev,
+        [summaryKey]: { summary: '', loading: false, error: errorMsg },
+      }));
+    }
+  };
+
+  const handleSummarizeAssignment = async () => {
+    if (!assignment) return;
+
+    setIsSummarizingAssignment(true);
+    setAssignmentSummaryError(null);
+    setAssignmentSummary(null);
+
+    try {
+      const summarizedAttachments = await Promise.all(
+        assignment.fileAttachments.map(async (file) => {
+          if (!file.Url) {
+            setAttachmentSummaries((prev) => ({
+              ...prev,
+              [file.FileName]: {
+                summary: prev[file.FileName]?.summary ?? '',
+                loading: false,
+                error: 'Attachment URL unavailable for this file.',
+              },
+            }));
+            return null;
+          }
+
+          setAttachmentSummaries((prev) => ({
+            ...prev,
+            [file.FileName]: {
+              summary: prev[file.FileName]?.summary ?? '',
+              loading: true,
+              error: null,
+            },
+          }));
+
+          try {
+            const attachmentSummary = (await window.electron.ipcRenderer.invoke(
+              'summarize-file-attachment',
+              file.Url,
+              file.FileName,
+              assignment.name,
+            )) as string;
+
+            setAttachmentSummaries((prev) => ({
+              ...prev,
+              [file.FileName]: {
+                summary: attachmentSummary,
+                loading: false,
+                error: null,
+              },
+            }));
+
+            return { fileName: file.FileName, summary: attachmentSummary };
+          } catch (error) {
+            const errorMsg =
+              error instanceof Error
+                ? error.message
+                : 'Failed to summarize file';
+            setAttachmentSummaries((prev) => ({
+              ...prev,
+              [file.FileName]: {
+                summary: prev[file.FileName]?.summary ?? '',
+                loading: false,
+                error: errorMsg,
+              },
+            }));
+
+            return null;
+          }
+        }),
+      );
+
+      const summaries = summarizedAttachments.filter(
+        (item): item is { fileName: string; summary: string } => item !== null,
+      );
+
+      const result = (await window.electron.ipcRenderer.invoke(
+        'summarize-assignment-full',
+        assignment.name,
+        assignment.description,
+        summaries,
+      )) as string;
+
+      setAssignmentSummary(result);
+    } catch (error) {
+      const errorMsg =
+        error instanceof Error
+          ? error.message
+          : 'Failed to summarize assignment';
+      setAssignmentSummaryError(errorMsg);
+    } finally {
+      setIsSummarizingAssignment(false);
+    }
+  };
+
   const renderContentNodes = (
     nodes: ContentNode[],
     depth = 0,
@@ -224,7 +422,7 @@ export default function DetailView({
               <Typography variant="subtitle1" fontWeight={600}>
                 {node.Title}
               </Typography>
-              {renderDownloadButton(node.Url)}
+              {renderDownloadButton(node.Url, undefined, node.Title)}
             </Stack>
           </Paper>
         );
@@ -429,22 +627,136 @@ export default function DetailView({
               </Typography>
               <Divider />
               <Stack spacing={1}>
-                {assignment.fileAttachments.map((file) => (
-                  <Paper
-                    key={file.FileId}
-                    variant="outlined"
-                    sx={{ p: 1.25, bgcolor: 'background.paper' }}
-                  >
-                    <Stack spacing={0.5}>
-                      <Typography variant="body2" fontWeight={600}>
-                        {file.FileName}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {(file.Size / 1024).toFixed(2)} KB
-                      </Typography>
-                    </Stack>
-                  </Paper>
-                ))}
+                {assignment.fileAttachments.map((file) => {
+                  const summaryData = attachmentSummaries[file.FileName];
+                  const downloadData = attachmentDownloads[file.FileName];
+                  const hasAttachmentUrl = Boolean(file.Url);
+                  return (
+                    <Paper
+                      key={file.FileId}
+                      variant="outlined"
+                      sx={{ p: 1.25, bgcolor: 'background.paper' }}
+                    >
+                      <Stack spacing={0.75}>
+                        <Stack spacing={0.5}>
+                          <Typography variant="body2" fontWeight={600}>
+                            {file.FileName}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {(file.Size / 1024).toFixed(2)} KB
+                          </Typography>
+                        </Stack>
+                        <Stack
+                          direction="row"
+                          spacing={0.75}
+                          flexWrap="wrap"
+                          sx={{ pt: 0.5 }}
+                        >
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            disabled={
+                              downloadData?.loading || !hasAttachmentUrl
+                            }
+                            onClick={() => {
+                              if (!file.Url) {
+                                return;
+                              }
+
+                              handleDownloadAttachment(file.Url, file.FileName);
+                            }}
+                          >
+                            {downloadData?.loading
+                              ? 'Downloading...'
+                              : 'Download'}
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="secondary"
+                            disabled={
+                              summaryData?.loading ||
+                              isSummarizingAssignment ||
+                              !hasAttachmentUrl
+                            }
+                            onClick={() => {
+                              if (!file.Url) {
+                                return;
+                              }
+
+                              handleSummarizeAttachment(
+                                file.Url,
+                                file.FileName,
+                              );
+                            }}
+                          >
+                            {summaryData?.loading
+                              ? 'Summarizing...'
+                              : 'Summarize'}
+                          </Button>
+                        </Stack>
+                        {!hasAttachmentUrl && (
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ mt: 0.5 }}
+                          >
+                            Attachment URL unavailable for this file.
+                          </Typography>
+                        )}
+                        {summaryData?.summary && (
+                          <Paper
+                            variant="outlined"
+                            sx={{
+                              p: 1,
+                              bgcolor: 'background.default',
+                              mt: 0.5,
+                            }}
+                          >
+                            <Stack spacing={0.5}>
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
+                                Summary:
+                              </Typography>
+                              <Typography variant="body2">
+                                {summaryData.summary}
+                              </Typography>
+                            </Stack>
+                          </Paper>
+                        )}
+                        {summaryData?.error && (
+                          <Typography
+                            variant="caption"
+                            color="error"
+                            sx={{ mt: 0.5 }}
+                          >
+                            Error: {summaryData.error}
+                          </Typography>
+                        )}
+                        {downloadData?.error && (
+                          <Typography
+                            variant="caption"
+                            color="error"
+                            sx={{ mt: 0.5 }}
+                          >
+                            Download error: {downloadData.error}
+                          </Typography>
+                        )}
+                        {downloadData?.path && !downloadData.error && (
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ mt: 0.5, wordBreak: 'break-all' }}
+                          >
+                            Cached file: {downloadData.path}
+                          </Typography>
+                        )}
+                      </Stack>
+                    </Paper>
+                  );
+                })}
               </Stack>
             </Stack>
           </Paper>
@@ -491,6 +803,41 @@ export default function DetailView({
             </Stack>
           </Paper>
         ) : null}
+
+        <Button
+          variant="contained"
+          color="secondary"
+          disabled={isSummarizingAssignment}
+          sx={{ alignSelf: 'flex-start', mt: 1 }}
+          onClick={handleSummarizeAssignment}
+        >
+          {isSummarizingAssignment
+            ? 'Summarizing Assignment...'
+            : 'Summarize Full Assignment'}
+        </Button>
+
+        {assignmentSummary && (
+          <Paper
+            variant="outlined"
+            sx={{ p: 1.5, bgcolor: 'background.default' }}
+          >
+            <Stack spacing={1}>
+              <Typography variant="subtitle1" fontWeight={700}>
+                Assignment Summary
+              </Typography>
+              <Divider />
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                {assignmentSummary}
+              </Typography>
+            </Stack>
+          </Paper>
+        )}
+
+        {assignmentSummaryError && (
+          <Typography variant="body2" color="error">
+            {assignmentSummaryError}
+          </Typography>
+        )}
       </Stack>
     );
   } else if (contentItemDetails) {
@@ -501,7 +848,11 @@ export default function DetailView({
         </Typography>
         <Divider />
         <Stack direction="row" spacing={1} flexWrap="wrap">
-          {renderDownloadButton(contentItemDetails.url)}
+          {renderDownloadButton(
+            contentItemDetails.url,
+            undefined,
+            contentItemDetails.title,
+          )}
           {renderSummarizeButton(
             contentItemDetails.url,
             contentItemDetails.title,

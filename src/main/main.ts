@@ -17,7 +17,13 @@ import { resolveHtmlPath } from './util';
 import openLoginWindow from './brightspace/login';
 import { fetchCourses } from './brightspace/course';
 import { fetchAssignments } from './brightspace/assignment';
-import { summarizeContentFile } from './ai';
+import {
+  downloadContentToCache,
+  downloadAttachmentToCache,
+  summarizeContentFile,
+  summarizeAttachment,
+  summarizeAssignmentWithAttachments,
+} from './ai';
 
 class AppUpdater {
   constructor() {
@@ -121,18 +127,86 @@ ipcMain.handle(
   },
 );
 
-ipcMain.on('download-content-item', (_event, url: string) => {
-  if (!url) {
-    return;
-  }
+ipcMain.on(
+  'download-content-item',
+  async (_event, url: string, title?: string) => {
+    if (!url) {
+      return;
+    }
 
-  if (mainWindow) {
-    mainWindow.webContents.downloadURL(url);
-    return;
-  }
+    try {
+      const cachePath = await downloadContentToCache(
+        url,
+        title || 'content-file',
+      );
+      shell.showItemInFolder(cachePath);
+    } catch {
+      if (mainWindow) {
+        mainWindow.webContents.downloadURL(url);
+        return;
+      }
 
-  session.defaultSession.downloadURL(url);
-});
+      session.defaultSession.downloadURL(url);
+    }
+  },
+);
+
+ipcMain.handle(
+  'download-file-attachment',
+  async (_event, url: string, fileName: string, assignmentName: string) => {
+    if (!url) {
+      throw new Error('No file URL provided');
+    }
+
+    if (!fileName) {
+      throw new Error('No file name provided');
+    }
+
+    const cachePath = await downloadAttachmentToCache(
+      url,
+      fileName,
+      assignmentName || 'assignment',
+    );
+    shell.showItemInFolder(cachePath);
+
+    return { success: true, path: cachePath };
+  },
+);
+
+ipcMain.handle(
+  'summarize-file-attachment',
+  async (_event, url: string, fileName: string, assignmentName: string) => {
+    if (!isAuthenticated) {
+      throw new Error('You need to be logged in to summarize files.');
+    }
+
+    if (!url || !fileName) {
+      throw new Error('Invalid file parameters');
+    }
+
+    return summarizeAttachment(url, fileName, assignmentName);
+  },
+);
+
+ipcMain.handle(
+  'summarize-assignment-full',
+  async (
+    _event,
+    assignmentName: string,
+    description: string | null,
+    attachmentSummaries: Array<{ fileName: string; summary: string }>,
+  ) => {
+    if (!isAuthenticated) {
+      throw new Error('You need to be logged in to summarize assignments.');
+    }
+
+    return summarizeAssignmentWithAttachments(
+      assignmentName,
+      description,
+      attachmentSummaries,
+    );
+  },
+);
 
 ipcMain.on('logout-requested', async (event) => {
   try {

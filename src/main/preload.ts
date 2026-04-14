@@ -17,7 +17,10 @@ export type IpcInvokeChannels =
   | 'get-dashboard-data'
   | 'get-assignments'
   | 'get-content'
-  | 'summarize-content-item';
+  | 'summarize-content-item'
+  | 'download-file-attachment'
+  | 'summarize-file-attachment'
+  | 'summarize-assignment-full';
 
 const electronHandler = {
   ipcRenderer: {

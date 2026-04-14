@@ -2,6 +2,9 @@ import request from './brightspace';
 import { fetchGrade, Grade, htmlToText } from './grade';
 import Route from './route';
 
+const BRIGHTSPACE_BASE_URL = 'https://brightspace.algonquincollege.com';
+const DROPBOX_ATTACHMENT_API_VERSION = '1.82';
+
 export interface Assignment {
   name: string;
   description: string | null;
@@ -43,6 +46,15 @@ export interface FileAttachment {
   FileId: number;
   FileName: string;
   Size: number;
+  Url?: string;
+}
+
+function buildAttachmentUrl(
+  courseOrgUnitId: number,
+  folderId: number,
+  fileId: number,
+): string {
+  return `${BRIGHTSPACE_BASE_URL}/d2l/api/le/${DROPBOX_ATTACHMENT_API_VERSION}/${courseOrgUnitId}/dropbox/folders/${folderId}/attachments/${fileId}`;
 }
 
 export interface LinkAttachment {
@@ -151,7 +163,12 @@ async function assignmentFromDropboxFolder(
     due_at: folder.DueDate ? new Date(folder.DueDate) : null,
     status: status ?? 0, // Default to 0 if status is null
     grade: grade,
-    fileAttachments: folder.Attachments ?? [],
+    fileAttachments: (folder.Attachments ?? []).map((attachment) => ({
+      ...attachment,
+      Url:
+        attachment.Url ||
+        buildAttachmentUrl(courseOrgUnitId, folder.Id, attachment.FileId),
+    })),
     linkAttachments: folder.LinkAttachments ?? [],
   };
 }
