@@ -131,6 +131,9 @@ export default function DetailView({
   const [assignmentSummaryError, setAssignmentSummaryError] = useState<
     string | null
   >(null);
+  const [courseDescription, setCourseDescription] = useState<string | null>(null);
+  const [courseInstructors, setCourseInstructors] = useState<any[]>([]);
+  const [isLoadingCourseDetails, setIsLoadingCourseDetails] = useState(false);
 
   const endsAt = course ? new Date(course.ends_at).toLocaleDateString() : null;
   const startsAt = assignment?.starts_at
@@ -171,6 +174,146 @@ export default function DetailView({
     setAssignmentSummaryError(null);
     setIsSummarizingAssignment(false);
   }, [contentItemDetails?.url, contentModule?.Id, assignment?.name]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!contentItemDetails?.url) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const loadCachedContentSummary = async () => {
+      try {
+        const cachedSummary = (await window.electron.ipcRenderer.invoke(
+          'get-cached-content-summary',
+          contentItemDetails.url,
+          contentItemDetails.title,
+        )) as string | null;
+
+        if (!cancelled && cachedSummary) {
+          setSummary(cachedSummary);
+        }
+      } catch {
+        // Ignore cache preload failures and allow manual summarization.
+      }
+    };
+
+    loadCachedContentSummary();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [contentItemDetails?.title, contentItemDetails?.url]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!assignment) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const loadCachedAssignmentSummaries = async () => {
+      try {
+        const attachmentLookupPayload = assignment.fileAttachments
+          .filter((file) => Boolean(file.Url))
+          .map((file) => ({
+            fileName: file.FileName,
+            url: file.Url as string,
+          }));
+
+        const cachedData = (await window.electron.ipcRenderer.invoke(
+          'get-cached-assignment-summaries',
+          assignment.name,
+          assignment.description,
+          attachmentLookupPayload,
+        )) as {
+          attachmentSummaries: Array<{ fileName: string; summary: string }>;
+          assignmentSummary: string | null;
+        };
+
+        if (cancelled) {
+          return;
+        }
+
+        if (cachedData.attachmentSummaries.length > 0) {
+          setAttachmentSummaries((prev) => {
+            const next = { ...prev };
+
+            cachedData.attachmentSummaries.forEach((entry) => {
+              next[entry.fileName] = {
+                summary: entry.summary,
+                loading: false,
+                error: null,
+              };
+            });
+
+            return next;
+          });
+        }
+
+        if (cachedData.assignmentSummary) {
+          setAssignmentSummary(cachedData.assignmentSummary);
+        }
+      } catch {
+        // Ignore cache preload failures and allow manual summarization.
+      }
+    };
+
+    loadCachedAssignmentSummaries();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [assignment]);
+
+  useEffect(() => {
+    if (!course) {
+      setCourseDescription(null);
+      setCourseInstructors([]);
+      return () => {
+        // noop
+      };
+    }
+
+    let cancelled = false;
+    setIsLoadingCourseDetails(true);
+
+    const loadCourseDetails = async () => {
+      try {
+        const [description, instructors] = await Promise.all([
+          window.electron.ipcRenderer.invoke(
+            'get-course-description',
+            course.org_unit_id,
+          ) as Promise<string | null>,
+          window.electron.ipcRenderer.invoke(
+            'get-course-instructors',
+            course.org_unit_id,
+          ) as Promise<any[]>,
+        ]);
+
+        if (!cancelled) {
+          setCourseDescription(description);
+          setCourseInstructors(instructors || []);
+        }
+      } catch {
+        // Ignore failures
+      } finally {
+        if (!cancelled) {
+          setIsLoadingCourseDetails(false);
+        }
+      }
+    };
+
+    loadCourseDetails();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [course]);
 
   const renderDownloadButton = (
     url: string,
@@ -903,26 +1046,193 @@ export default function DetailView({
     );
   } else if (course) {
     detailContent = (
-      <Stack spacing={1.5}>
-        <Typography variant="h5" fontWeight={700}>
-          {course.name}
-        </Typography>
-        <Divider />
-        <Typography variant="body1">Full Code: {course.full_code}</Typography>
-        <Typography variant="body1">
-          Section: {course.section_number ?? 'No section available'}
-        </Typography>
-        <Typography variant="body1">
-          Semester: {course.semester.year} {course.semester.term}
-        </Typography>
-        <Typography variant="body1">Ends At: {endsAt}</Typography>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Typography variant="body1">Status:</Typography>
-          <Chip
-            label={course.is_active ? 'Active' : 'Inactive'}
-            color={course.is_active ? 'primary' : 'default'}
-          />
-        </Stack>
+      <Stack spacing={2.5}>
+        {/* Course Header Banner */}
+        <Paper
+          elevation={2}
+          sx={{
+            p: 2.5,
+            background: 'linear-gradient(135deg, #1e5f54 0%, #2a7a6f 100%)',
+            color: 'white',
+            mx: -2,
+            mt: -2,
+            mb: 1,
+          }}
+        >
+          <Stack spacing={1}>
+            <Typography variant="h4" fontWeight={800}>
+              {course.name}
+            </Typography>
+            <Typography variant="subtitle1" sx={{ opacity: 0.95 }}>
+              {course.full_code}
+              {course.section_number && ` • Section ${course.section_number}`}
+            </Typography>
+            <Stack
+              direction="row"
+              spacing={1.5}
+              alignItems="center"
+              flexWrap="wrap"
+              sx={{ pt: 1 }}
+            >
+              <Chip
+                label={course.is_active ? 'Active' : 'Inactive'}
+                color={course.is_active ? 'success' : 'default'}
+                variant="filled"
+                sx={{
+                  bgcolor: course.is_active ? 'rgba(76, 175, 80, 0.9)' : 'rgba(158, 158, 158, 0.6)',
+                  color: 'white',
+                  fontWeight: 600,
+                }}
+              />
+              <Chip
+                label={`${course.semester.term} ${course.semester.year}`}
+                variant="outlined"
+                sx={{
+                  borderColor: 'rgba(255, 255, 255, 0.7)',
+                  color: 'white',
+                }}
+              />
+              <Chip
+                label={`Ends: ${endsAt}`}
+                variant="outlined"
+                sx={{
+                  borderColor: 'rgba(255, 255, 255, 0.7)',
+                  color: 'white',
+                }}
+              />
+            </Stack>
+          </Stack>
+        </Paper>
+
+        {/* Course Information Grid */}
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          <Stack spacing={2}>
+            <Typography variant="subtitle2" fontWeight={700} color="text.secondary">
+              COURSE INFORMATION
+            </Typography>
+            <Stack
+              spacing={1.5}
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                gap: 2,
+              }}
+            >
+              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'background.default' }}>
+                <Stack spacing={0.5}>
+                  <Typography variant="caption" fontWeight={600} color="text.secondary">
+                    Full Code
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {course.full_code}
+                  </Typography>
+                </Stack>
+              </Paper>
+              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'background.default' }}>
+                <Stack spacing={0.5}>
+                  <Typography variant="caption" fontWeight={600} color="text.secondary">
+                    Semester
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {course.semester.term} {course.semester.year}
+                  </Typography>
+                </Stack>
+              </Paper>
+              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'background.default' }}>
+                <Stack spacing={0.5}>
+                  <Typography variant="caption" fontWeight={600} color="text.secondary">
+                    Section
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {course.section_number ?? 'N/A'}
+                  </Typography>
+                </Stack>
+              </Paper>
+              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'background.default' }}>
+                <Stack spacing={0.5}>
+                  <Typography variant="caption" fontWeight={600} color="text.secondary">
+                    Course Ends
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {endsAt}
+                  </Typography>
+                </Stack>
+              </Paper>
+            </Stack>
+          </Stack>
+        </Paper>
+
+        {/* Instructors Section */}
+        {!isLoadingCourseDetails && courseInstructors.length > 0 && (
+          <Paper variant="outlined" sx={{ p: 2 }}>
+            <Stack spacing={1.5}>
+              <Typography variant="subtitle2" fontWeight={700} color="text.secondary">
+                INSTRUCTORS
+              </Typography>
+              <Stack spacing={1}>
+                {courseInstructors.map((instructor) => (
+                  <Paper
+                    key={instructor.email || instructor.displayName}
+                    variant="outlined"
+                    sx={{ p: 1.5, bgcolor: 'background.default' }}
+                  >
+                    <Stack spacing={0.5}>
+                      <Typography variant="body2" fontWeight={600}>
+                        {instructor.displayName}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {instructor.role}
+                      </Typography>
+                      {instructor.email && (
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: 'primary.main',
+                            textDecoration: 'none',
+                            '&:hover': { textDecoration: 'underline' },
+                          }}
+                          component="a"
+                          href={`mailto:${instructor.email}`}
+                        >
+                          {instructor.email}
+                        </Typography>
+                      )}
+                    </Stack>
+                  </Paper>
+                ))}
+              </Stack>
+            </Stack>
+          </Paper>
+        )}
+
+        {/* Course Description Section */}
+        {!isLoadingCourseDetails && courseDescription && (
+          <Paper variant="outlined" sx={{ p: 2 }}>
+            <Stack spacing={1.5}>
+              <Typography variant="subtitle2" fontWeight={700} color="text.secondary">
+                COURSE DESCRIPTION
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.primary',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  lineHeight: 1.6,
+                }}
+              >
+                {courseDescription}
+              </Typography>
+            </Stack>
+          </Paper>
+        )}
+
+        {/* Loading State */}
+        {isLoadingCourseDetails && (
+          <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+            Loading course details...
+          </Typography>
+        )}
       </Stack>
     );
   }

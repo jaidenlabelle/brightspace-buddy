@@ -146,6 +146,14 @@ export async function downloadContentToCache(
   return fetchAndCacheFile(url, title, 'content-download', cacheId);
 }
 
+export async function getCachedContentSummary(
+  url: string,
+  title: string,
+): Promise<string | null> {
+  const cacheId = getCacheIdentity(url, title);
+  return getCachedSummary('content-summary', cacheId);
+}
+
 export async function summarizeContentFile(
   url: string,
   title: string,
@@ -193,6 +201,67 @@ export async function summarizeAttachment(
   await cacheSummary('attachment-summary', cacheId, summary);
 
   return summary;
+}
+
+export async function getCachedAttachmentSummary(
+  url: string,
+  fileName: string,
+  assignmentName: string,
+): Promise<string | null> {
+  const cacheId = getCacheIdentity(url, `${assignmentName}__${fileName}`);
+  return getCachedSummary('attachment-summary', cacheId);
+}
+
+export async function getCachedAssignmentData(
+  assignmentName: string,
+  description: string | null,
+  attachments: Array<{ fileName: string; url: string }>,
+): Promise<{
+  attachmentSummaries: Array<{ fileName: string; summary: string }>;
+  assignmentSummary: string | null;
+}> {
+  const cachedAttachmentSummaries = (
+    await Promise.all(
+      attachments.map(async (attachment) => {
+        const summary = await getCachedAttachmentSummary(
+          attachment.url,
+          attachment.fileName,
+          assignmentName,
+        );
+
+        if (!summary) {
+          return null;
+        }
+
+        return {
+          fileName: attachment.fileName,
+          summary,
+        };
+      }),
+    )
+  ).filter(
+    (
+      item,
+    ): item is {
+      fileName: string;
+      summary: string;
+    } => item !== null,
+  );
+
+  const summaryCacheId = getSummaryCacheIdentity(
+    assignmentName,
+    description,
+    cachedAttachmentSummaries,
+  );
+  const assignmentSummary = await getCachedSummary(
+    'assignment-summary',
+    summaryCacheId,
+  );
+
+  return {
+    attachmentSummaries: cachedAttachmentSummaries,
+    assignmentSummary,
+  };
 }
 
 export async function summarizeAssignmentWithAttachments(

@@ -12,6 +12,12 @@ export enum EntityDropboxStatus {
   Published = 3,
 }
 
+export interface Instructor {
+  displayName: string;
+  email?: string;
+  role: string;
+}
+
 export interface CourseTreeItem {
   full_code: string;
   full_name: string;
@@ -21,6 +27,8 @@ export interface CourseTreeItem {
   ends_at: string | Date;
   is_active: boolean;
   semester: Semester;
+  description?: string | null;
+  instructors?: Instructor[];
 }
 
 export interface AssignmentTreeItem {

@@ -15,11 +15,13 @@ import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 import openLoginWindow from './brightspace/login';
-import { fetchCourses } from './brightspace/course';
+import { fetchCourses, fetchCourseDescription, fetchCourseInstructors } from './brightspace/course';
 import { fetchAssignments } from './brightspace/assignment';
 import {
   downloadContentToCache,
   downloadAttachmentToCache,
+  getCachedAssignmentData,
+  getCachedContentSummary,
   summarizeContentFile,
   summarizeAttachment,
   summarizeAssignmentWithAttachments,
@@ -113,6 +115,28 @@ ipcMain.handle('get-content', async (_event, courseOrgUnitId: number) => {
 });
 
 ipcMain.handle(
+  'get-course-description',
+  async (_event, courseOrgUnitId: number) => {
+    if (!isAuthenticated) {
+      return null;
+    }
+
+    return fetchCourseDescription(courseOrgUnitId);
+  },
+);
+
+ipcMain.handle(
+  'get-course-instructors',
+  async (_event, courseOrgUnitId: number) => {
+    if (!isAuthenticated) {
+      return [];
+    }
+
+    return fetchCourseInstructors(courseOrgUnitId);
+  },
+);
+
+ipcMain.handle(
   'summarize-content-item',
   async (_event, url: string, title: string) => {
     if (!isAuthenticated) {
@@ -124,6 +148,17 @@ ipcMain.handle(
     }
 
     return summarizeContentFile(url, title);
+  },
+);
+
+ipcMain.handle(
+  'get-cached-content-summary',
+  async (_event, url: string, title: string) => {
+    if (!url) {
+      return null;
+    }
+
+    return getCachedContentSummary(url, title);
   },
 );
 
@@ -205,6 +240,22 @@ ipcMain.handle(
       description,
       attachmentSummaries,
     );
+  },
+);
+
+ipcMain.handle(
+  'get-cached-assignment-summaries',
+  async (
+    _event,
+    assignmentName: string,
+    description: string | null,
+    attachments: Array<{ fileName: string; url: string }>,
+  ) => {
+    if (!assignmentName) {
+      return { attachmentSummaries: [], assignmentSummary: null };
+    }
+
+    return getCachedAssignmentData(assignmentName, description, attachments);
   },
 );
 
