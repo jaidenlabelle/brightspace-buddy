@@ -230,7 +230,11 @@ function buildDashboardData(
   };
 }
 
-export default function Dashboard() {
+export default function Dashboard({
+  onSelectAssignment,
+}: {
+  onSelectAssignment: (assignment: AssignmentTreeItem) => void;
+}) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<DashboardData | null>(null);
@@ -406,7 +410,31 @@ export default function Dashboard() {
                     <Paper
                       key={`${assignment.courseCode}-${assignment.name}`}
                       variant="outlined"
-                      sx={{ p: 1.5, bgcolor: 'background.paper' }}
+                      sx={{
+                        p: 1.5,
+                        bgcolor: 'background.paper',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.2s ease',
+                        '&:hover': {
+                          bgcolor: 'rgba(30, 95, 84, 0.06)',
+                        },
+                        '&:focus-visible': {
+                          outline: '2px solid',
+                          outlineColor: 'primary.main',
+                          outlineOffset: 2,
+                        },
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        onSelectAssignment(assignment);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          onSelectAssignment(assignment);
+                        }
+                      }}
                     >
                       <Stack
                         direction={{ xs: 'column', md: 'row' }}

@@ -264,7 +264,11 @@ export default function Home({ onLogout }: { onLogout: () => void }) {
               height: '100%',
             }}
           >
-            <Dashboard />
+            <Dashboard
+              onSelectAssignment={(assignment) => {
+                setSelectedView({ type: 'assignment', assignment });
+              }}
+            />
           </Box>
           <Box
             sx={{
