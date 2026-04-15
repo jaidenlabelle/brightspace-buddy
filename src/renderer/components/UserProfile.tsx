@@ -1,5 +1,7 @@
 import Avatar from '@mui/material/Avatar';
+import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
+import Stack from '@mui/material/Stack';
 import Tooltip from '@mui/material/Tooltip';
 import styles from '../styles/UserProfile.module.scss';
 
@@ -34,19 +36,34 @@ function stringAvatar(name: string) {
 
 export default function UserProfile({
   name,
-  onClick,
+  onAvatarClick,
+  isSubscribed,
+  onSubscriptionClick,
 }: {
   name: string;
-  onClick: () => void;
+  onAvatarClick: () => void;
+  isSubscribed: boolean;
+  onSubscriptionClick: () => void;
 }) {
   return (
     <div className={styles.userProfile}>
-      <Tooltip title="Account options">
-        <IconButton onClick={onClick} aria-label="Open account options">
-          {/* eslint-disable-next-line react/jsx-props-no-spreading */}
-          <Avatar {...stringAvatar(name)} />
-        </IconButton>
-      </Tooltip>
+      <Stack direction="row" spacing={1} alignItems="center">
+        <Button
+          size="small"
+          variant={isSubscribed ? 'contained' : 'outlined'}
+          color={isSubscribed ? 'success' : 'secondary'}
+          onClick={onSubscriptionClick}
+          sx={{ minWidth: 112 }}
+        >
+          {isSubscribed ? 'Subscribed' : 'Subscribe'}
+        </Button>
+        <Tooltip title="Account options">
+          <IconButton onClick={onAvatarClick} aria-label="Open account options">
+            {/* eslint-disable-next-line react/jsx-props-no-spreading */}
+            <Avatar {...stringAvatar(name)} />
+          </IconButton>
+        </Tooltip>
+      </Stack>
     </div>
   );
 }

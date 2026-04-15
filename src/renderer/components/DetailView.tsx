@@ -102,11 +102,15 @@ function getDueLabel(dueDate: string | Date | null): string {
 }
 
 export default function DetailView({
+  isSubscriptionActive,
+  onRequireSubscription,
   course,
   assignment,
   contentModule,
   contentItem,
 }: {
+  isSubscriptionActive: boolean;
+  onRequireSubscription: () => void;
   course: CourseTreeItem | null;
   assignment: AssignmentTreeItem | null;
   contentModule: ContentModule | null;
@@ -346,9 +350,18 @@ export default function DetailView({
       variant="outlined"
       color="secondary"
       disabled={!url || isSummarizing}
-      sx={{ alignSelf: 'flex-start' }}
+      sx={{
+        alignSelf: 'flex-start',
+        opacity: isSubscriptionActive ? 1 : 0.55,
+        filter: isSubscriptionActive ? 'none' : 'grayscale(0.9)',
+      }}
       onClick={async () => {
         if (!url) {
+          return;
+        }
+
+        if (!isSubscriptionActive) {
+          onRequireSubscription();
           return;
         }
 
@@ -822,8 +835,19 @@ export default function DetailView({
                               isSummarizingAssignment ||
                               !hasAttachmentUrl
                             }
+                            sx={{
+                              opacity: isSubscriptionActive ? 1 : 0.55,
+                              filter: isSubscriptionActive
+                                ? 'none'
+                                : 'grayscale(0.9)',
+                            }}
                             onClick={() => {
                               if (!file.Url) {
+                                return;
+                              }
+
+                              if (!isSubscriptionActive) {
+                                onRequireSubscription();
                                 return;
                               }
 
@@ -951,8 +975,20 @@ export default function DetailView({
           variant="contained"
           color="secondary"
           disabled={isSummarizingAssignment}
-          sx={{ alignSelf: 'flex-start', mt: 1 }}
-          onClick={handleSummarizeAssignment}
+          sx={{
+            alignSelf: 'flex-start',
+            mt: 1,
+            opacity: isSubscriptionActive ? 1 : 0.55,
+            filter: isSubscriptionActive ? 'none' : 'grayscale(0.9)',
+          }}
+          onClick={() => {
+            if (!isSubscriptionActive) {
+              onRequireSubscription();
+              return;
+            }
+
+            handleSummarizeAssignment();
+          }}
         >
           {isSummarizingAssignment
             ? 'Summarizing Assignment...'
