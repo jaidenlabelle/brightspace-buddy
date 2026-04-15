@@ -1,4 +1,4 @@
-import { SyntheticEvent, useEffect, useState } from 'react';
+import { SyntheticEvent, useEffect, useMemo, useState } from 'react';
 import { TreeViewBaseItem } from '@mui/x-tree-view';
 import { RichTreeView } from '@mui/x-tree-view/RichTreeView';
 import { Alert, Box, CircularProgress, Typography } from '@mui/material';
@@ -16,6 +16,9 @@ interface FileTreeProps {
   onSelectContentModule: (contentModule: ContentModule | null) => void;
   onSelectContentItem: (contentItem: ContentModuleItem | null) => void;
   onSelectDashboard: () => void;
+  onSelectGpaCalculator: () => void;
+  isSubscriptionActive: boolean;
+  onRequireSubscription: () => void;
 }
 
 interface SemesterEntry {
@@ -31,6 +34,7 @@ interface TreeData {
   contentModuleByItemId: Map<string, ContentModule>;
   contentItemByItemId: Map<string, ContentModuleItem>;
   defaultExpandedItems: string[];
+  hasPendingSections: boolean;
 }
 
 const TERM_SORT_ORDER: Record<CourseTreeItem['semester']['term'], number> = {
@@ -45,50 +49,6 @@ function semesterId(semester: CourseTreeItem['semester']): string {
 
 function semesterLabel(semester: CourseTreeItem['semester']): string {
   return `${semester.year} ${semester.term}`;
-}
-
-async function fetchAssignmentsByCourse(
-  courses: CourseTreeItem[],
-): Promise<Map<number, AssignmentTreeItem[]>> {
-  const assignmentsByCourse = new Map<number, AssignmentTreeItem[]>();
-
-  await Promise.all(
-    courses.map(async (course) => {
-      try {
-        const assignments = (await window.electron.ipcRenderer.invoke(
-          'get-assignments',
-          course.org_unit_id,
-        )) as AssignmentTreeItem[];
-        assignmentsByCourse.set(course.org_unit_id, assignments);
-      } catch {
-        assignmentsByCourse.set(course.org_unit_id, []);
-      }
-    }),
-  );
-
-  return assignmentsByCourse;
-}
-
-async function fetchContentByCourse(
-  courses: CourseTreeItem[],
-): Promise<Map<number, ContentNode[]>> {
-  const contentByCourse = new Map<number, ContentNode[]>();
-
-  await Promise.all(
-    courses.map(async (course) => {
-      try {
-        const content = (await window.electron.ipcRenderer.invoke(
-          'get-content',
-          course.org_unit_id,
-        )) as ContentNode[];
-        contentByCourse.set(course.org_unit_id, content);
-      } catch {
-        contentByCourse.set(course.org_unit_id, []);
-      }
-    }),
-  );
-
-  return contentByCourse;
 }
 
 function sortSemesters(entries: SemesterEntry[]): SemesterEntry[] {
@@ -124,10 +84,77 @@ function buildSemesterMap(
   }, new Map<string, SemesterEntry>());
 }
 
+function buildAssignmentChildren(
+  courseId: string,
+  assignmentState: AssignmentTreeItem[] | null,
+  assignmentByItemId: Map<string, AssignmentTreeItem>,
+): TreeViewBaseItem[] {
+  if (assignmentState === null) {
+    return [
+      {
+        id: `${courseId}-assignments-loading`,
+        label: 'Loading assignments...',
+      },
+    ];
+  }
+
+  if (assignmentState.length === 0) {
+    return [
+      {
+        id: `${courseId}-assignments-empty`,
+        label: 'No assignments found',
+      },
+    ];
+  }
+
+  return assignmentState.map((assignment, index) => {
+    const assignmentId = `${courseId}-assignment-${index}`;
+    assignmentByItemId.set(assignmentId, assignment);
+
+    return {
+      id: assignmentId,
+      label: assignment.due_at
+        ? `${assignment.name} (Due ${new Date(assignment.due_at).toLocaleDateString()})`
+        : assignment.name,
+    };
+  });
+}
+
+function buildContentChildren(
+  courseId: string,
+  contentState: ContentNode[] | null,
+  contentFolderId: string,
+  buildContentTree: (
+    contentNodes: ContentNode[],
+    parentId: string,
+  ) => TreeViewBaseItem[],
+): TreeViewBaseItem[] {
+  if (contentState === null) {
+    return [
+      {
+        id: `${courseId}-content-loading`,
+        label: 'Loading content...',
+      },
+    ];
+  }
+
+  if (contentState.length === 0) {
+    return [
+      {
+        id: `${courseId}-content-empty`,
+        label: 'No content found',
+      },
+    ];
+  }
+
+  return buildContentTree(contentState, contentFolderId);
+}
+
 function buildTreeData(
   courses: CourseTreeItem[],
-  assignmentsByCourse: Map<number, AssignmentTreeItem[]>,
-  contentByCourse: Map<number, ContentNode[]>,
+  assignmentsByCourse: Map<number, AssignmentTreeItem[] | null>,
+  contentByCourse: Map<number, ContentNode[] | null>,
+  isSubscriptionActive: boolean,
 ): TreeData {
   const sortedSemesters = sortSemesters(
     Array.from(buildSemesterMap(courses).values()),
@@ -137,6 +164,8 @@ function buildTreeData(
   const courseByItemId = new Map<string, CourseTreeItem>();
   const contentModuleByItemId = new Map<string, ContentModule>();
   const contentItemByItemId = new Map<string, ContentModuleItem>();
+
+  let hasPendingSections = false;
 
   const buildContentTree = (
     contentNodes: ContentNode[],
@@ -177,46 +206,33 @@ function buildTreeData(
         const courseId = `course-${course.org_unit_id}`;
         courseByItemId.set(courseId, course);
 
-        const assignmentChildren = (
-          assignmentsByCourse.get(course.org_unit_id) ?? []
-        ).map((assignment, index) => {
-          const assignmentId = `${courseId}-assignment-${index}`;
-          assignmentByItemId.set(assignmentId, assignment);
-
-          return {
-            id: assignmentId,
-            label: assignment.due_at
-              ? `${assignment.name} (Due ${new Date(assignment.due_at).toLocaleDateString()})`
-              : assignment.name,
-          };
-        });
-
-        const contentNodes = contentByCourse.get(course.org_unit_id) ?? [];
         const contentFolderId = `${courseId}-content-folder`;
-        const contentFolderNode: ContentModule = {
+        const assignmentState =
+          assignmentsByCourse.get(course.org_unit_id) ?? null;
+        const contentState = contentByCourse.get(course.org_unit_id) ?? null;
+
+        contentModuleByItemId.set(contentFolderId, {
           kind: 'folder',
           Id: -course.org_unit_id,
           Title: 'Content',
-          Children: contentNodes,
-        };
-        contentModuleByItemId.set(contentFolderId, contentFolderNode);
+          Children: contentState ?? [],
+        });
 
-        const contentChildren = buildContentTree(contentNodes, contentFolderId);
+        const assignmentChildren = buildAssignmentChildren(
+          courseId,
+          assignmentState,
+          assignmentByItemId,
+        );
 
-        const courseChildren: TreeViewBaseItem[] = [
-          {
-            id: `${courseId}-assignments-folder`,
-            label: 'Assignments',
-            children: assignmentChildren,
-          },
-        ];
+        const contentChildren = buildContentChildren(
+          courseId,
+          contentState,
+          contentFolderId,
+          buildContentTree,
+        );
 
-        if (contentChildren.length > 0) {
-          courseChildren.push({
-            id: contentFolderId,
-            label: 'Content',
-            children: contentChildren,
-          });
+        if (assignmentState === null || contentState === null) {
+          hasPendingSections = true;
         }
 
         return {
@@ -224,14 +240,34 @@ function buildTreeData(
           label: course.section_number
             ? `${course.name} (${course.section_number})`
             : course.name,
-          children: courseChildren,
+          children: [
+            {
+              id: `${courseId}-assignments-folder`,
+              label: 'Assignments',
+              children: assignmentChildren,
+            },
+            {
+              id: contentFolderId,
+              label: 'Content',
+              children: contentChildren,
+            },
+          ],
         };
       }),
     };
   });
 
   return {
-    items: [{ id: 'dashboard', label: 'Dashboard' }, ...semesterItems],
+    items: [
+      { id: 'dashboard', label: 'Dashboard' },
+      {
+        id: 'gpa-calculator',
+        label: isSubscriptionActive
+          ? 'GPA Calculator'
+          : 'GPA Calculator (Paid Feature)',
+      },
+      ...semesterItems,
+    ],
     courseByItemId,
     assignmentByItemId,
     contentModuleByItemId,
@@ -239,6 +275,7 @@ function buildTreeData(
     defaultExpandedItems: sortedSemesters
       .filter((entry) => entry.hasActiveCourse)
       .map((entry) => semesterId(entry.semester)),
+    hasPendingSections,
   };
 }
 
@@ -248,25 +285,30 @@ export default function FileTree({
   onSelectContentModule,
   onSelectContentItem,
   onSelectDashboard,
+  onSelectGpaCalculator,
+  isSubscriptionActive,
+  onRequireSubscription,
 }: FileTreeProps) {
-  const [items, setItems] = useState<TreeViewBaseItem[]>([]);
-  const [courseByItemId, setCourseByItemId] = useState<
-    Map<string, CourseTreeItem>
+  const [courses, setCourses] = useState<CourseTreeItem[]>([]);
+  const [assignmentsByCourse, setAssignmentsByCourse] = useState<
+    Map<number, AssignmentTreeItem[] | null>
   >(new Map());
-  const [assignmentByItemId, setAssignmentByItemId] = useState<
-    Map<string, AssignmentTreeItem>
+  const [contentByCourse, setContentByCourse] = useState<
+    Map<number, ContentNode[] | null>
   >(new Map());
-  const [contentModuleByItemId, setContentModuleByItemId] = useState<
-    Map<string, ContentModule>
-  >(new Map());
-  const [contentItemByItemId, setContentItemByItemId] = useState<
-    Map<string, ContentModuleItem>
-  >(new Map());
-  const [defaultExpandedItems, setDefaultExpandedItems] = useState<string[]>(
-    [],
-  );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const treeData = useMemo(
+    () =>
+      buildTreeData(
+        courses,
+        assignmentsByCourse,
+        contentByCourse,
+        isSubscriptionActive,
+      ),
+    [assignmentsByCourse, contentByCourse, courses, isSubscriptionActive],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -276,7 +318,7 @@ export default function FileTree({
         setIsLoading(true);
         setError(null);
 
-        const courses = (await window.electron.ipcRenderer.invoke(
+        const loadedCourses = (await window.electron.ipcRenderer.invoke(
           'get-courses',
         )) as CourseTreeItem[];
 
@@ -284,25 +326,76 @@ export default function FileTree({
           return;
         }
 
-        const assignmentsByCourse = await fetchAssignmentsByCourse(courses);
-        const contentByCourse = await fetchContentByCourse(courses);
-
-        if (cancelled) {
-          return;
-        }
-
-        const treeData = buildTreeData(
-          courses,
-          assignmentsByCourse,
-          contentByCourse,
+        setCourses(loadedCourses);
+        setAssignmentsByCourse(
+          new Map(loadedCourses.map((course) => [course.org_unit_id, null])),
+        );
+        setContentByCourse(
+          new Map(loadedCourses.map((course) => [course.org_unit_id, null])),
         );
 
-        setItems(treeData.items);
-        setCourseByItemId(treeData.courseByItemId);
-        setAssignmentByItemId(treeData.assignmentByItemId);
-        setContentModuleByItemId(treeData.contentModuleByItemId);
-        setContentItemByItemId(treeData.contentItemByItemId);
-        setDefaultExpandedItems(treeData.defaultExpandedItems);
+        loadedCourses.forEach((course) => {
+          const loadAssignments = async () => {
+            try {
+              const assignments = (await window.electron.ipcRenderer.invoke(
+                'get-assignments',
+                course.org_unit_id,
+              )) as AssignmentTreeItem[];
+
+              if (cancelled) {
+                return;
+              }
+
+              setAssignmentsByCourse((current) => {
+                const next = new Map(current);
+                next.set(course.org_unit_id, assignments);
+                return next;
+              });
+            } catch {
+              if (cancelled) {
+                return;
+              }
+
+              setAssignmentsByCourse((current) => {
+                const next = new Map(current);
+                next.set(course.org_unit_id, []);
+                return next;
+              });
+            }
+          };
+
+          const loadContent = async () => {
+            try {
+              const content = (await window.electron.ipcRenderer.invoke(
+                'get-content',
+                course.org_unit_id,
+              )) as ContentNode[];
+
+              if (cancelled) {
+                return;
+              }
+
+              setContentByCourse((current) => {
+                const next = new Map(current);
+                next.set(course.org_unit_id, content);
+                return next;
+              });
+            } catch {
+              if (cancelled) {
+                return;
+              }
+
+              setContentByCourse((current) => {
+                const next = new Map(current);
+                next.set(course.org_unit_id, []);
+                return next;
+              });
+            }
+          };
+
+          loadAssignments();
+          loadContent();
+        });
       } catch (err) {
         if (!cancelled) {
           setError(
@@ -342,7 +435,9 @@ export default function FileTree({
     );
   }
 
-  const hasCourses = items.some((item) => (item.children?.length ?? 0) > 0);
+  const hasCourses = treeData.items.some((item) => {
+    return (item.children?.length ?? 0) > 0;
+  });
 
   if (!hasCourses) {
     return (
@@ -371,7 +466,18 @@ export default function FileTree({
       return;
     }
 
-    const selectedAssignment = assignmentByItemId.get(selectedItemId);
+    if (selectedItemId === 'gpa-calculator') {
+      if (!isSubscriptionActive) {
+        onRequireSubscription();
+        onSelectDashboard();
+        return;
+      }
+
+      onSelectGpaCalculator();
+      return;
+    }
+
+    const selectedAssignment = treeData.assignmentByItemId.get(selectedItemId);
     if (selectedAssignment) {
       onSelectCourse(null);
       onSelectContentModule(null);
@@ -380,7 +486,8 @@ export default function FileTree({
       return;
     }
 
-    const selectedContentItem = contentItemByItemId.get(selectedItemId);
+    const selectedContentItem =
+      treeData.contentItemByItemId.get(selectedItemId);
     if (selectedContentItem) {
       onSelectCourse(null);
       onSelectAssignment(null);
@@ -389,7 +496,8 @@ export default function FileTree({
       return;
     }
 
-    const selectedContentModule = contentModuleByItemId.get(selectedItemId);
+    const selectedContentModule =
+      treeData.contentModuleByItemId.get(selectedItemId);
     if (selectedContentModule) {
       onSelectCourse(null);
       onSelectAssignment(null);
@@ -398,7 +506,7 @@ export default function FileTree({
       return;
     }
 
-    const selectedCourse = courseByItemId.get(selectedItemId);
+    const selectedCourse = treeData.courseByItemId.get(selectedItemId);
     if (selectedCourse) {
       onSelectAssignment(null);
       onSelectContentModule(null);
@@ -415,9 +523,17 @@ export default function FileTree({
 
   return (
     <Box sx={{ py: 0.5 }}>
+      {treeData.hasPendingSections ? (
+        <Box display="flex" alignItems="center" gap={1} mb={1.25}>
+          <CircularProgress size={14} />
+          <Typography variant="caption" color="text.secondary">
+            Loading explorer content...
+          </Typography>
+        </Box>
+      ) : null}
       <RichTreeView
-        items={items}
-        defaultExpandedItems={defaultExpandedItems}
+        items={treeData.items}
+        defaultExpandedItems={treeData.defaultExpandedItems}
         onSelectedItemsChange={handleSelectionChange}
       />
     </Box>

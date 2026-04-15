@@ -14,6 +14,12 @@ export interface Course {
   org_unit_id: number;
 }
 
+export interface Instructor {
+  displayName: string;
+  email?: string;
+  role: string;
+}
+
 export function courseFromString(
   courseString: string,
   orgUnitId: number
@@ -166,6 +172,70 @@ export async function fetchCourses(): Promise<Course[]> {
     return courses;
   } catch (error) {
     console.error("Error in fetchCourses:", error);
+    return [];
+  }
+}
+
+/**
+ * Fetches the course description from the Brightspace API
+ * @param courseOrgUnitId The organization unit ID of the course
+ * @returns The course description text or null if not available
+ */
+export async function fetchCourseDescription(courseOrgUnitId: number): Promise<string | null> {
+  try {
+    const response = await request(new Route("GET", `/d2l/api/lp/1.58/courses/${courseOrgUnitId}/`));
+
+    if (response?.CourseOffering?.Description) {
+      const desc = response.CourseOffering.Description;
+      // Handle both plain text and rich text (HTML) descriptions
+      if (typeof desc === 'string') {
+        return desc;
+      }
+      if (desc.Html) {
+        // Simple HTML to text conversion
+        return desc.Html.replace(/<[^>]*>/g, '').trim();
+      }
+      if (desc.Text) {
+        return desc.Text;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error(`Error fetching course description for course ${courseOrgUnitId}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Fetches the course instructors from the classlist API
+ * @param courseOrgUnitId The organization unit ID of the course
+ * @returns Array of instructors for the course
+ */
+export async function fetchCourseInstructors(courseOrgUnitId: number): Promise<Instructor[]> {
+  try {
+    // Fetch the classlist to find instructors
+    const classlistItems = await fetchAllPages<any>(
+      new Route("GET", `/d2l/api/le/1.58/${courseOrgUnitId}/classlist/paged/?pageSize=100`)
+    );
+
+    const instructors: Instructor[] = [];
+
+    for (const item of classlistItems) {
+      // Check if user has instructor role
+      if (item.Role?.Name?.toLowerCase().includes('instructor') ||
+          item.Role?.Id === 4) { // 4 is typically the instructor role ID
+        instructors.push({
+          displayName: item.DisplayName || `${item.FirstName || ''} ${item.LastName || ''}`.trim(),
+          email: item.Email,
+          role: item.Role?.Name || 'Instructor',
+        });
+      }
+    }
+
+    return instructors;
+  } catch (error) {
+    console.error(`Error fetching course instructors for course ${courseOrgUnitId}:`, error);
     return [];
   }
 }

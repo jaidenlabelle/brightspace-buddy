@@ -15,9 +15,17 @@ import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 import openLoginWindow from './brightspace/login';
-import { fetchCourses } from './brightspace/course';
+import { fetchCourses, fetchCourseDescription, fetchCourseInstructors } from './brightspace/course';
 import { fetchAssignments } from './brightspace/assignment';
-import { summarizeContentFile } from './ai';
+import {
+  downloadContentToCache,
+  downloadAttachmentToCache,
+  getCachedAssignmentData,
+  getCachedContentSummary,
+  summarizeContentFile,
+  summarizeAttachment,
+  summarizeAssignmentWithAttachments,
+} from './ai';
 
 class AppUpdater {
   constructor() {
@@ -60,6 +68,35 @@ ipcMain.handle('get-courses', async () => {
   return fetchCourses();
 });
 
+ipcMain.handle('get-dashboard-data', async () => {
+  if (!isAuthenticated) {
+    return { courses: [], assignmentsByCourse: {} };
+  }
+
+  const courses = await fetchCourses();
+  const assignmentsByCourse: Record<
+    number,
+    Awaited<ReturnType<typeof fetchAssignments>>
+  > = {};
+
+  await Promise.all(
+    courses.map(async (course) => {
+      try {
+        assignmentsByCourse[course.org_unit_id] = await fetchAssignments(
+          course.org_unit_id,
+        );
+      } catch {
+        assignmentsByCourse[course.org_unit_id] = [];
+      }
+    }),
+  );
+
+  return {
+    courses,
+    assignmentsByCourse,
+  };
+});
+
 ipcMain.handle('get-assignments', async (_event, courseOrgUnitId: number) => {
   if (!isAuthenticated) {
     return [];
@@ -78,6 +115,28 @@ ipcMain.handle('get-content', async (_event, courseOrgUnitId: number) => {
 });
 
 ipcMain.handle(
+  'get-course-description',
+  async (_event, courseOrgUnitId: number) => {
+    if (!isAuthenticated) {
+      return null;
+    }
+
+    return fetchCourseDescription(courseOrgUnitId);
+  },
+);
+
+ipcMain.handle(
+  'get-course-instructors',
+  async (_event, courseOrgUnitId: number) => {
+    if (!isAuthenticated) {
+      return [];
+    }
+
+    return fetchCourseInstructors(courseOrgUnitId);
+  },
+);
+
+ipcMain.handle(
   'summarize-content-item',
   async (_event, url: string, title: string) => {
     if (!isAuthenticated) {
@@ -92,18 +151,113 @@ ipcMain.handle(
   },
 );
 
-ipcMain.on('download-content-item', (_event, url: string) => {
-  if (!url) {
-    return;
-  }
+ipcMain.handle(
+  'get-cached-content-summary',
+  async (_event, url: string, title: string) => {
+    if (!url) {
+      return null;
+    }
 
-  if (mainWindow) {
-    mainWindow.webContents.downloadURL(url);
-    return;
-  }
+    return getCachedContentSummary(url, title);
+  },
+);
 
-  session.defaultSession.downloadURL(url);
-});
+ipcMain.on(
+  'download-content-item',
+  async (_event, url: string, title?: string) => {
+    if (!url) {
+      return;
+    }
+
+    try {
+      const cachePath = await downloadContentToCache(
+        url,
+        title || 'content-file',
+      );
+      shell.showItemInFolder(cachePath);
+    } catch {
+      if (mainWindow) {
+        mainWindow.webContents.downloadURL(url);
+        return;
+      }
+
+      session.defaultSession.downloadURL(url);
+    }
+  },
+);
+
+ipcMain.handle(
+  'download-file-attachment',
+  async (_event, url: string, fileName: string, assignmentName: string) => {
+    if (!url) {
+      throw new Error('No file URL provided');
+    }
+
+    if (!fileName) {
+      throw new Error('No file name provided');
+    }
+
+    const cachePath = await downloadAttachmentToCache(
+      url,
+      fileName,
+      assignmentName || 'assignment',
+    );
+    shell.showItemInFolder(cachePath);
+
+    return { success: true, path: cachePath };
+  },
+);
+
+ipcMain.handle(
+  'summarize-file-attachment',
+  async (_event, url: string, fileName: string, assignmentName: string) => {
+    if (!isAuthenticated) {
+      throw new Error('You need to be logged in to summarize files.');
+    }
+
+    if (!url || !fileName) {
+      throw new Error('Invalid file parameters');
+    }
+
+    return summarizeAttachment(url, fileName, assignmentName);
+  },
+);
+
+ipcMain.handle(
+  'summarize-assignment-full',
+  async (
+    _event,
+    assignmentName: string,
+    description: string | null,
+    attachmentSummaries: Array<{ fileName: string; summary: string }>,
+  ) => {
+    if (!isAuthenticated) {
+      throw new Error('You need to be logged in to summarize assignments.');
+    }
+
+    return summarizeAssignmentWithAttachments(
+      assignmentName,
+      description,
+      attachmentSummaries,
+    );
+  },
+);
+
+ipcMain.handle(
+  'get-cached-assignment-summaries',
+  async (
+    _event,
+    assignmentName: string,
+    description: string | null,
+    attachments: Array<{ fileName: string; url: string }>,
+  ) => {
+    if (!assignmentName) {
+      return { attachmentSummaries: [], assignmentSummary: null };
+    }
+
+    return getCachedAssignmentData(assignmentName, description, attachments);
+  },
+);
 
 ipcMain.on('logout-requested', async (event) => {
   try {
@@ -216,7 +370,7 @@ app
   .then(() => {
     session.defaultSession.setUserAgent(
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0',
-    )
+    );
     createWindow();
     app.on('activate', () => {
       // On macOS it's common to re-create a window in the app when the

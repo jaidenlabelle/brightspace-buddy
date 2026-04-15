@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Box,
   DialogActions,
@@ -14,6 +14,7 @@ import {
 import UserProfile from './UserProfile';
 import DetailView from './DetailView';
 import Dashboard from './Dashboard';
+import GpaCalculator from './GpaCalculator';
 import FileTree from './FileTree';
 import {
   AssignmentTreeItem,
@@ -24,6 +25,7 @@ import {
 
 type SelectedView =
   | { type: 'dashboard' }
+  | { type: 'gpa-calculator' }
   | { type: 'course'; course: CourseTreeItem }
   | { type: 'assignment'; assignment: AssignmentTreeItem }
   | { type: 'content-module'; contentModule: ContentModule }
@@ -31,6 +33,9 @@ type SelectedView =
 
 export default function Home({ onLogout }: { onLogout: () => void }) {
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
+  const [unsubscribeDialogOpen, setUnsubscribeDialogOpen] = useState(false);
+  const [isSubscriptionActive, setIsSubscriptionActive] = useState(false);
   const [selectedView, setSelectedView] = useState<SelectedView>({
     type: 'dashboard',
   });
@@ -75,6 +80,16 @@ export default function Home({ onLogout }: { onLogout: () => void }) {
     setSelectedView({ type: 'dashboard' });
   };
 
+  const handleSelectGpaCalculator = () => {
+    if (!isSubscriptionActive) {
+      handleOpenPurchaseDialog();
+      setSelectedView({ type: 'dashboard' });
+      return;
+    }
+
+    setSelectedView({ type: 'gpa-calculator' });
+  };
+
   const handleLogoutDialogOpen = () => {
     setLogoutDialogOpen(true);
   };
@@ -88,6 +103,35 @@ export default function Home({ onLogout }: { onLogout: () => void }) {
     setLogoutDialogOpen(false);
   };
 
+  const handleSubscriptionButtonClick = () => {
+    if (isSubscriptionActive) {
+      setUnsubscribeDialogOpen(true);
+      return;
+    }
+
+    setPurchaseDialogOpen(true);
+  };
+
+  const handleOpenPurchaseDialog = () => {
+    setPurchaseDialogOpen(true);
+  };
+
+  const handleActivateSubscription = () => {
+    setIsSubscriptionActive(true);
+    setPurchaseDialogOpen(false);
+  };
+
+  const handleUnsubscribe = () => {
+    setIsSubscriptionActive(false);
+    setUnsubscribeDialogOpen(false);
+  };
+
+  useEffect(() => {
+    if (!isSubscriptionActive && selectedView.type === 'gpa-calculator') {
+      setSelectedView({ type: 'dashboard' });
+    }
+  }, [isSubscriptionActive, selectedView.type]);
+
   return (
     <Box
       sx={{
@@ -98,7 +142,12 @@ export default function Home({ onLogout }: { onLogout: () => void }) {
           'linear-gradient(155deg, rgba(244,240,230,1) 0%, rgba(237,229,214,1) 100%)',
       }}
     >
-      <UserProfile name="Jaiden Labelle" onClick={handleLogoutDialogOpen} />
+      <UserProfile
+        name="Jaiden Labelle"
+        onAvatarClick={handleLogoutDialogOpen}
+        isSubscribed={isSubscriptionActive}
+        onSubscriptionClick={handleSubscriptionButtonClick}
+      />
       <Dialog open={logoutDialogOpen} onClose={handleLogoutDialogClose}>
         <DialogTitle>Log Out</DialogTitle>
         <DialogContent>
@@ -110,6 +159,61 @@ export default function Home({ onLogout }: { onLogout: () => void }) {
           <Button onClick={handleLogoutDialogClose}>Cancel</Button>
           <Button onClick={handleLogout} variant="contained" color="primary">
             Log Out
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog
+        open={purchaseDialogOpen}
+        onClose={() => {
+          setPurchaseDialogOpen(false);
+        }}
+      >
+        <DialogTitle>Brightspace Buddy Pro</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Unlock AI summaries and assistant tools with a paid subscription.
+            This is a demo checkout, so no payment will be collected.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setPurchaseDialogOpen(false);
+            }}
+          >
+            Not now
+          </Button>
+          <Button
+            onClick={handleActivateSubscription}
+            variant="contained"
+            color="secondary"
+          >
+            Activate Demo Subscription
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog
+        open={unsubscribeDialogOpen}
+        onClose={() => {
+          setUnsubscribeDialogOpen(false);
+        }}
+      >
+        <DialogTitle>Manage Subscription</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Your subscription is currently active. Would you like to unsubscribe?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setUnsubscribeDialogOpen(false);
+            }}
+          >
+            Keep Subscription
+          </Button>
+          <Button onClick={handleUnsubscribe} variant="contained" color="error">
+            Unsubscribe
           </Button>
         </DialogActions>
       </Dialog>
@@ -139,6 +243,9 @@ export default function Home({ onLogout }: { onLogout: () => void }) {
             onSelectContentModule={handleSelectContentModule}
             onSelectContentItem={handleSelectContentItem}
             onSelectDashboard={handleSelectDashboard}
+            onSelectGpaCalculator={handleSelectGpaCalculator}
+            isSubscriptionActive={isSubscriptionActive}
+            onRequireSubscription={handleOpenPurchaseDialog}
           />
         </Paper>
         <Paper
@@ -151,10 +258,40 @@ export default function Home({ onLogout }: { onLogout: () => void }) {
             minHeight: { md: 'calc(100vh - 120px)' },
           }}
         >
-          {selectedView.type === 'dashboard' ? (
-            <Dashboard />
-          ) : (
+          <Box
+            sx={{
+              display: selectedView.type === 'dashboard' ? 'block' : 'none',
+              height: '100%',
+            }}
+          >
+            <Dashboard
+              onSelectAssignment={(assignment) => {
+                setSelectedView({ type: 'assignment', assignment });
+              }}
+            />
+          </Box>
+          <Box
+            sx={{
+              display:
+                selectedView.type === 'gpa-calculator' ? 'block' : 'none',
+              height: '100%',
+            }}
+          >
+            <GpaCalculator />
+          </Box>
+          <Box
+            sx={{
+              display:
+                selectedView.type === 'dashboard' ||
+                selectedView.type === 'gpa-calculator'
+                  ? 'none'
+                  : 'block',
+              height: '100%',
+            }}
+          >
             <DetailView
+              isSubscriptionActive={isSubscriptionActive}
+              onRequireSubscription={handleOpenPurchaseDialog}
               course={
                 selectedView.type === 'course' ? selectedView.course : null
               }
@@ -174,7 +311,7 @@ export default function Home({ onLogout }: { onLogout: () => void }) {
                   : null
               }
             />
-          )}
+          </Box>
         </Paper>
       </Stack>
     </Box>
