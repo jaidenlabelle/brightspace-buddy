@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Box,
   DialogActions,
@@ -81,6 +81,12 @@ export default function Home({ onLogout }: { onLogout: () => void }) {
   };
 
   const handleSelectGpaCalculator = () => {
+    if (!isSubscriptionActive) {
+      handleOpenPurchaseDialog();
+      setSelectedView({ type: 'dashboard' });
+      return;
+    }
+
     setSelectedView({ type: 'gpa-calculator' });
   };
 
@@ -119,6 +125,12 @@ export default function Home({ onLogout }: { onLogout: () => void }) {
     setIsSubscriptionActive(false);
     setUnsubscribeDialogOpen(false);
   };
+
+  useEffect(() => {
+    if (!isSubscriptionActive && selectedView.type === 'gpa-calculator') {
+      setSelectedView({ type: 'dashboard' });
+    }
+  }, [isSubscriptionActive, selectedView.type]);
 
   return (
     <Box
@@ -232,6 +244,8 @@ export default function Home({ onLogout }: { onLogout: () => void }) {
             onSelectContentItem={handleSelectContentItem}
             onSelectDashboard={handleSelectDashboard}
             onSelectGpaCalculator={handleSelectGpaCalculator}
+            isSubscriptionActive={isSubscriptionActive}
+            onRequireSubscription={handleOpenPurchaseDialog}
           />
         </Paper>
         <Paper

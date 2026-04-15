@@ -17,6 +17,8 @@ interface FileTreeProps {
   onSelectContentItem: (contentItem: ContentModuleItem | null) => void;
   onSelectDashboard: () => void;
   onSelectGpaCalculator: () => void;
+  isSubscriptionActive: boolean;
+  onRequireSubscription: () => void;
 }
 
 interface SemesterEntry {
@@ -152,6 +154,7 @@ function buildTreeData(
   courses: CourseTreeItem[],
   assignmentsByCourse: Map<number, AssignmentTreeItem[] | null>,
   contentByCourse: Map<number, ContentNode[] | null>,
+  isSubscriptionActive: boolean,
 ): TreeData {
   const sortedSemesters = sortSemesters(
     Array.from(buildSemesterMap(courses).values()),
@@ -257,7 +260,12 @@ function buildTreeData(
   return {
     items: [
       { id: 'dashboard', label: 'Dashboard' },
-      { id: 'gpa-calculator', label: 'GPA Calculator' },
+      {
+        id: 'gpa-calculator',
+        label: isSubscriptionActive
+          ? 'GPA Calculator'
+          : 'GPA Calculator (Paid Feature)',
+      },
       ...semesterItems,
     ],
     courseByItemId,
@@ -278,6 +286,8 @@ export default function FileTree({
   onSelectContentItem,
   onSelectDashboard,
   onSelectGpaCalculator,
+  isSubscriptionActive,
+  onRequireSubscription,
 }: FileTreeProps) {
   const [courses, setCourses] = useState<CourseTreeItem[]>([]);
   const [assignmentsByCourse, setAssignmentsByCourse] = useState<
@@ -290,8 +300,14 @@ export default function FileTree({
   const [error, setError] = useState<string | null>(null);
 
   const treeData = useMemo(
-    () => buildTreeData(courses, assignmentsByCourse, contentByCourse),
-    [assignmentsByCourse, contentByCourse, courses],
+    () =>
+      buildTreeData(
+        courses,
+        assignmentsByCourse,
+        contentByCourse,
+        isSubscriptionActive,
+      ),
+    [assignmentsByCourse, contentByCourse, courses, isSubscriptionActive],
   );
 
   useEffect(() => {
@@ -451,6 +467,12 @@ export default function FileTree({
     }
 
     if (selectedItemId === 'gpa-calculator') {
+      if (!isSubscriptionActive) {
+        onRequireSubscription();
+        onSelectDashboard();
+        return;
+      }
+
       onSelectGpaCalculator();
       return;
     }
